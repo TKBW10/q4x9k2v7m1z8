@@ -38,7 +38,9 @@ padding:16px 18px;margin-bottom:14px}
 .card.result{border-color:var(--blue);box-shadow:0 0 0 1px rgba(76,141,255,.3)}
 .card.result .big{font-size:26px;font-weight:700;color:var(--blue);margin:6px 0}
 .tags{display:flex;gap:8px;align-items:center;margin-bottom:8px;font-size:12px;flex-wrap:wrap}
-.badge{background:#243349;color:#9fc0ff;border-radius:6px;padding:2px 8px}
+.badge{display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:26px;
+padding:0 6px;background:#243349;color:#9fc0ff;border-radius:7px;font-size:12px;line-height:1}
+.icog{display:flex;align-items:center;gap:8px;margin-left:auto}
 .ibtn{flex:none;display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;
 padding:0;background:transparent;border:1px solid var(--line);border-radius:7px;color:var(--mut)}
 .ibtn svg{width:15px;height:15px;display:block}
@@ -143,7 +145,8 @@ main{padding:10px}
 .testbar button{flex:0 1 auto;min-height:30px;padding:3px 8px;font-size:12px}
 .card{padding:13px}
 .opt{padding:11px 12px;min-height:44px}
-.ibtn{width:30px;height:30px}
+.badge{min-width:30px;height:30px;border-radius:8px;font-size:13px}
+.ibtn{width:30px;height:30px;border-radius:8px}
 .ibtn svg{width:16px;height:16px}
 .sbtn{width:40px;height:40px}
 .sheetmask{padding:0}
@@ -162,8 +165,7 @@ main{padding:10px}
 <div class="bar">
 <select id="mode"><option value="all">按题号顺序</option>
 <option value="shuffle">随机打乱</option>
-<option value="wrong">只看错题本</option>
-<option value="noans">只看有答案的</option></select>
+<option value="wrong">只看错题本</option></select>
 <input id="kw" placeholder="搜索题干 / 答案关键词…"><button class="ghost kwbtn" id="kwbtn">搜索</button>
 <select id="tn"><option value="10">抽 10 题</option><option value="20">抽 20 题</option>
 <option value="30">抽 30 题</option><option value="50">抽 50 题</option></select>
@@ -209,7 +211,7 @@ resultEl=document.getElementById('result'),sheetEl=document.getElementById('shee
 let state={ans:{},mode:'all',kw:'',scroll:0,test:null,result:null,
 unit:false,uidx:0,auto:false,shuf:false,shufSeed:0,updatedAt:0};
 try{const s=JSON.parse(localStorage.getItem(STORE)||'{}');
-if(s&&typeof s==='object'){state.ans=s.ans||{};state.mode=s.mode||'all';
+if(s&&typeof s==='object'){state.ans=s.ans||{};state.mode=s.mode==='noans'?'all':(s.mode||'all');
 state.kw=s.kw||'';state.scroll=s.scroll||0;
 state.unit=!!s.unit;state.uidx=s.uidx||0;state.auto=!!s.auto;state.shuf=!!s.shuf;state.shufSeed=s.shufSeed||0;state.updatedAt=+s.updatedAt||0;}}catch(e){}
 function save(){state.updatedAt=Date.now();localStorage.setItem(STORE,JSON.stringify({ans:state.ans,mode:state.mode,kw:state.kw,
@@ -254,7 +256,6 @@ const kw=(qs('kw').value||'').trim().toLowerCase();
 if(kw)a=a.filter(r=>(r.stem+r.answer).toLowerCase().includes(kw));
 const m=qs('mode').value;
 if(m==='wrong')a=a.filter(r=>inLib(r.num));
-else if(m==='noans')a=a.filter(r=>r.answer);
 return a;}
 let cache={key:null,nums:[]};
 function ordered(a){const key=qs('mode').value+'|'+(qs('kw').value||'');
@@ -307,10 +308,11 @@ const ansInner=keys.length
 const ansHtml='<div class="ans'+(showAns?' show':'')+'">'+ansInner+'</div>';
 const eyeIco='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>';
 const starIco='<svg viewBox="0 0 24 24" fill="'+(inLib(r.num)?'currentColor':'none')+'" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><polygon points="12 2 15.1 8.6 22 9.3 16.8 14 18.2 21 12 17.3 5.8 21 7.2 14 2 9.3 8.9 8.6"/></svg>';
-let act='<button class="ibtn'+(showAns?' on':'')+'" data-rev="1" title="显示 / 隐藏答案" aria-label="显示或隐藏答案">'+eyeIco+'</button>';
-if(!testMode){act+='<button class="ibtn'+(inLib(r.num)?' on':'')+'" data-lib="1" title="'+(inLib(r.num)?'移出错题本':'加入错题本')+'" aria-label="加入或移出错题本">'+starIco+'</button>';}
-return '<div class="tags"><span class="badge">'+r.num+'</span>'+act+statusBadge(r,testMode)+
-(collapsed?'<span class="mut" style="margin-left:auto">已收起 · 点卡片展开</span>':'')+'</div>'+
+let ico='<button class="ibtn'+(showAns?' on':'')+'" data-rev="1" title="显示 / 隐藏答案" aria-label="显示或隐藏答案">'+eyeIco+'</button>';
+if(!testMode){ico+='<button class="ibtn'+(inLib(r.num)?' on':'')+'" data-lib="1" title="'+(inLib(r.num)?'移出错题本':'加入错题本')+'" aria-label="加入或移出错题本">'+starIco+'</button>';}
+const act='<span class="icog">'+ico+'</span>';
+return '<div class="tags"><span class="badge">'+r.num+'</span>'+statusBadge(r,testMode)+
+(collapsed?'<span class="mut">已收起 · 点卡片展开</span>':'')+act+'</div>'+
 '<div class="stem">'+(collapsed?'<span class="q">'+esc((r.stem||'').split('\n')[0])+'</span>':fmt(r.stem))+'</div>'+
 optsHtml+ansHtml;}
 
