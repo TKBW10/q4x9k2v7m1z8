@@ -215,7 +215,7 @@ if(s&&typeof s==='object'){state.ans=s.ans||{};state.mode=s.mode==='noans'?'all'
 state.kw=s.kw||'';state.scroll=s.scroll||0;
 state.unit=!!s.unit;state.uidx=s.uidx||0;state.auto=!!s.auto;state.shuf=!!s.shuf;state.shufSeed=s.shufSeed||0;state.updatedAt=+s.updatedAt||0;}}catch(e){}
 function save(){state.updatedAt=Date.now();localStorage.setItem(STORE,JSON.stringify({ans:state.ans,mode:state.mode,kw:state.kw,
-scroll:window.scrollY,unit:state.unit,uidx:state.uidx,auto:state.auto,shuf:state.shuf,shufSeed:state.shufSeed,updatedAt:state.updatedAt}));}
+scroll:window.scrollY,unit:state.unit,uidx:state.uidx,auto:state.auto,shuf:state.shuf,shufSeed:state.shufSeed,updatedAt:state.updatedAt}));noteChange();}
 function qs(id){return document.getElementById(id)}
 function syncSw(){['unit','auto','shuf'].forEach(k=>{const e=qs(k);const r=e&&e.closest('.setrow');if(r)r.classList.toggle('on',e.checked);});}
 function esc(s){return (s||'').replace(/[&<>]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]))}
@@ -495,7 +495,7 @@ localStorage.setItem(STORE,JSON.stringify(s));syncNoSave=true;location.reload();
 async function syncPush(cfg,sha){
 const r=await gh('PUT',cfg,{message:'sync: update quiz progress',
 content:b64enc(JSON.stringify(payload(),null,2)),branch:cfg.branch,...(sha?{sha}:{})});
-if(r.ok)alert('已把本地进度上传到仓库。');else syncFail(r);}
+if(r.ok){autoBroken=false;pendingPush=false;lastStateSig=stateSig(state);alert('已把本地进度上传到仓库。');}else syncFail(r);}
 async function doSync(){
 const cfg=syncCfg();
 if(!cfg.repo||!cfg.path||!cfg.token){openSyncDlg();return;}
@@ -519,9 +519,68 @@ return;}
 alert('本地与云端一致，无需同步。');
 }catch(e){alert('同步失败：'+(e&&e.message?e.message:e));}
 finally{btn.disabled=false}}
+/* ===== 自动同步 ===== */
+const AUTO_DEBOUNCE=60000;
+let pendingPush=false,pushTimer=null,pushBusy=false,pullBusy=false,autoBroken=false;
+function stateSig(s){return JSON.stringify({ans:s.ans||{},mode:s.mode,unit:!!s.unit,auto:!!s.auto,shuf:!!s.shuf,shufSeed:s.shufSeed||0})}
+let lastStateSig=stateSig(state);
+function noteChange(){
+const sig=stateSig(state);
+if(sig===lastStateSig)return;
+lastStateSig=sig;pendingPush=true;schedulePush();}
+function schedulePush(){
+clearTimeout(pushTimer);
+if(!pendingPush||autoBroken||!syncCfg().token)return;
+pushTimer=setTimeout(flushPush,AUTO_DEBOUNCE);}
+function applyRemote(remote){
+if(!remote||!remote.state)return false;
+const s=remote.state;s.updatedAt=+remote.updatedAt||0;
+localStorage.setItem(STORE,JSON.stringify(s));syncNoSave=true;location.reload();return true;}
+async function pushSilent(cfg,sha,msg){
+const r=await gh('PUT',cfg,{message:'sync: '+msg,content:b64enc(JSON.stringify(payload(),null,2)),branch:cfg.branch,...(sha?{sha}:{})});
+if(r.ok){pendingPush=false;autoBroken=false;lastStateSig=stateSig(state);
+syncMsg('已自动同步 '+new Date().toLocaleTimeString(),'okc');return true}
+if(r.status===401||r.status===403){autoBroken=true;syncMsg('自动同步已暂停：令牌无效或无权限','err');return false}
+if(r.status===409){clearTimeout(pushTimer);pushTimer=setTimeout(flushPush,5000)}
+return false}
+async function flushPush(){
+clearTimeout(pushTimer);pushTimer=null;
+const cfg=syncCfg();
+if(!cfg.token||!pendingPush||pushBusy)return;
+pushBusy=true;
+try{
+const g=await gh('GET',cfg);
+if(g.status===404){await pushSilent(cfg,'','create progress');return}
+if(!g.ok)return;
+let remote=null;try{remote=JSON.parse(b64dec(g.json.content))}catch(e){return}
+if((+remote.updatedAt||0)>(state.updatedAt||0)){applyRemote(remote);return}
+if(!remote.state||stateSig(remote.state)!==stateSig(state)){await pushSilent(cfg,g.json.sha,'auto save progress')}
+}catch(e){}finally{pushBusy=false}}
+async function syncBoot(){
+const cfg=syncCfg();if(!cfg.token||pullBusy)return;
+pullBusy=true;
+try{
+const g=await gh('GET',cfg);
+if(g.status===404){await pushSilent(cfg,'','create progress');return}
+if(g.status===401||g.status===403){autoBroken=true;return}
+if(!g.ok||!g.json||!g.json.content)return;
+let remote=null;try{remote=JSON.parse(b64dec(g.json.content))}catch(e){return}
+if(!remote.state||stateSig(remote.state)===stateSig(state))return;
+if((+remote.updatedAt||0)>(state.updatedAt||0)){applyRemote(remote);return}
+pendingPush=true;lastStateSig=stateSig(state);flushPush();
+}catch(e){}finally{pullBusy=false}}
+async function autoPull(){
+const cfg=syncCfg();if(!cfg.token||pullBusy||autoBroken||pendingPush)return;
+pullBusy=true;
+try{
+const g=await gh('GET',cfg);
+if(!g.ok||!g.json||!g.json.content)return;
+let remote=null;try{remote=JSON.parse(b64dec(g.json.content))}catch(e){return}
+if(remote.state&&(+remote.updatedAt||0)>(state.updatedAt||0)&&stateSig(remote.state)!==stateSig(state))applyRemote(remote);
+}catch(e){}finally{pullBusy=false}}
+function openSyncDlg(){qs('stoken').value=syncCfg().token;syncMsg('');openSettings('syncsect');}
 function openSettings(focusId){qs('settingsmask').classList.add('show');
 if(focusId){const s=qs(focusId);if(s)setTimeout(()=>s.scrollIntoView({block:'center'}),0);}}
-function openSyncDlg(){qs('stoken').value=syncCfg().token;syncMsg('');openSettings('syncsect');}
 function closeSyncDlg(){qs('settingsmask').classList.remove('show')}
 qs('setbtn').addEventListener('click',()=>openSettings());
 qs('kwbtn').addEventListener('click',()=>{
@@ -534,8 +593,13 @@ const token=qs('stoken').value.trim();
 if(!token){syncMsg('请先填入 GitHub 访问令牌。','err');qs('stoken').focus();return;}
 localStorage.setItem(SYNC_CFG,JSON.stringify({token}));doSync();});
 qs('sdel').addEventListener('click',()=>{localStorage.removeItem(SYNC_CFG);qs('stoken').value='';
+clearTimeout(pushTimer);pushTimer=null;pendingPush=false;
 syncMsg('已清除本机保存的凭证。','okc');});
 window.addEventListener('beforeunload',()=>{if(!syncNoSave)save();});
+document.addEventListener('visibilitychange',()=>{
+if(document.hidden){if(pendingPush)flushPush();}else autoPull();});
+window.addEventListener('focus',()=>autoPull());
+setTimeout(syncBoot,1500);
 if(!DATA.some(r=>hasOpts(r).length)){['tn','starttest'].forEach(id=>{const el=qs(id);if(el)el.style.display='none';});}
 render();
 setTimeout(()=>window.scrollTo(0,state.scroll||0),30);
