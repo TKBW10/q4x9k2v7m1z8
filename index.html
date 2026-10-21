@@ -99,11 +99,17 @@ padding:10px 12px;margin-bottom:8px;font-size:14px}
 label.setrow{cursor:pointer;user-select:none}
 .setrow .rl{display:flex;flex-direction:column;gap:1px;min-width:0}
 .setrow .rd{font-size:12px;color:var(--mut);line-height:1.4}
-.setrow input[type=checkbox]{width:17px;height:17px;min-width:0;flex:none;margin:0;
-padding:0;accent-color:var(--blue)}
-.setrow.on{border-color:var(--blue)}
+.setrow .sw{position:relative;flex:none;width:44px;height:24px;border-radius:999px;
+background:#2a3446;border:1px solid var(--line);transition:background .18s,border-color .18s}
+.setrow .sw input{position:absolute;inset:0;width:100%;height:100%;min-width:0;margin:0;
+padding:0;opacity:0;cursor:pointer}
+.setrow .sw i{position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;
+background:#8b9bb4;pointer-events:none;transition:transform .18s,background .18s}
+.setrow.on .sw{background:var(--blue);border-color:var(--blue)}
+.setrow.on .sw i{transform:translateX(20px);background:#fff}
+.setrow .sw input:focus-visible+i{outline:2px solid var(--blue);outline-offset:3px}
+.setrow.stack{flex-direction:column;align-items:stretch;gap:8px}
 .setrow button{flex:none}
-.sect>label{display:block;font-size:12px;color:var(--mut);margin:10px 0 4px}
 .sect input[type=text],.sect input[type=password]{width:100%;min-width:0;flex:none}
 .sect .act{margin-top:14px}
 .smsg{min-height:17px;margin-top:9px;font-size:12px;color:var(--mut)}
@@ -151,9 +157,9 @@ main{padding:12px}
 <div class="phead"><h2>设置</h2><button class="iconbtn" id="setclose">关闭</button></div>
 <div class="sect">
 <h3>答题</h3>
-<label class="setrow" id="swunit"><span class="rl"><span>单题模式</span><span class="rd">一次只展开一题，答完自动跳到下一题</span></span><input type="checkbox" id="unit"></label>
-<label class="setrow" id="swauto"><span class="rl"><span>答对自动收起</span><span class="rd">答对后收起该题并跳下一题</span></span><input type="checkbox" id="auto"></label>
-<label class="setrow" id="swshuf"><span class="rl"><span>选项乱序</span><span class="rd">每次开启重新打乱 A/B/C/D</span></span><input type="checkbox" id="shuf"></label>
+<label class="setrow" id="swunit"><span class="rl"><span>单题模式</span><span class="rd">一次只展开一题，答完自动跳到下一题</span></span><span class="sw"><input type="checkbox" id="unit"><i></i></span></label>
+<label class="setrow" id="swauto"><span class="rl"><span>答对自动收起</span><span class="rd">答对后收起该题并跳下一题</span></span><span class="sw"><input type="checkbox" id="auto"><i></i></span></label>
+<label class="setrow" id="swshuf"><span class="rl"><span>选项乱序</span><span class="rd">每次开启重新打乱 A/B/C/D</span></span><span class="sw"><input type="checkbox" id="shuf"><i></i></span></label>
 </div>
 <div class="sect">
 <h3>数据</h3>
@@ -163,13 +169,12 @@ main{padding:12px}
 </div>
 <div class="sect" id="syncsect">
 <h3>GitHub 云同步</h3>
-<div class="mut">进度以 JSON 文件提交到仓库。Token 只保存在本机浏览器，不会写进页面源码。</div>
-<label for="srepo">仓库（owner/name）</label><input id="srepo" type="text" placeholder="TKBW10/v6k1m8z3q9x4">
-<label for="sbranch">分支</label><input id="sbranch" type="text" placeholder="main">
-<label for="spath">文件路径</label><input id="spath" type="text" placeholder="state/progress.json">
-<label for="stoken">Personal Access Token（fine-grained，仅需该仓库 Contents 读写）</label><input id="stoken" type="password" placeholder="github_pat_...">
+<div class="setrow stack">
+<label class="rl" for="stoken">GitHub 访问令牌</label>
+<input id="stoken" type="password" placeholder="github_pat_..." autocomplete="off" spellcheck="false">
+</div>
 <div class="smsg" id="smsg"></div>
-<div class="act"><button class="ghost" id="sdel">清除凭证</button><button id="sok">保存并同步</button></div>
+<div class="act"><button class="ghost" id="sdel">清除令牌</button><button id="sok">保存并同步</button></div>
 </div>
 </div>
 </div>
@@ -190,7 +195,7 @@ state.unit=!!s.unit;state.uidx=s.uidx||0;state.auto=!!s.auto;state.shuf=!!s.shuf
 function save(){state.updatedAt=Date.now();localStorage.setItem(STORE,JSON.stringify({ans:state.ans,mode:state.mode,kw:state.kw,
 scroll:window.scrollY,unit:state.unit,uidx:state.uidx,auto:state.auto,shuf:state.shuf,shufSeed:state.shufSeed,updatedAt:state.updatedAt}));}
 function qs(id){return document.getElementById(id)}
-function syncSw(){['unit','auto','shuf'].forEach(k=>{const e=qs(k);if(e&&e.parentNode&&e.parentNode.classList)e.parentNode.classList.toggle('on',e.checked);});}
+function syncSw(){['unit','auto','shuf'].forEach(k=>{const e=qs(k);const r=e&&e.closest('.setrow');if(r)r.classList.toggle('on',e.checked);});}
 function esc(s){return (s||'').replace(/[&<>]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]))}
 function hasOpts(r){return ['A','B','C','D'].filter(k=>r.options&&r.options[k])}
 function entry(n){return state.ans[n]||null}
@@ -435,8 +440,11 @@ qs('reset').addEventListener('click',()=>{qs('kw').value='';qs('mode').value='al
 state.kw='';state.mode='all';endTest();});
 /* ===== GitHub 云同步 ===== */
 const SYNC_CFG='cquiz400sel:sync_cfg';
+const SYNC_REPO='TKBW10/v6k1m8z3q9x4',SYNC_BRANCH='main',SYNC_PATH='state/progress.json';
 let syncNoSave=false;
-function syncCfg(){try{const c=JSON.parse(localStorage.getItem(SYNC_CFG)||'null');return c&&typeof c==='object'?c:{}}catch(e){return {}}}
+function syncCfg(){let token='';try{const c=JSON.parse(localStorage.getItem(SYNC_CFG)||'null');
+if(c&&typeof c==='object'&&c.token)token=c.token;}catch(e){}
+return {repo:SYNC_REPO,branch:SYNC_BRANCH,path:SYNC_PATH,token:token}}
 function syncMsg(t,k){const el=qs('smsg');if(!el)return;el.textContent=t||'';el.className='smsg'+(k?' '+k:'');}
 function b64enc(s){const b=new TextEncoder().encode(s);let x='';for(let i=0;i<b.length;i++)x+=String.fromCharCode(b[i]);return btoa(x)}
 function b64dec(s){const bin=atob((s||'').replace(/\s/g,''));const b=new Uint8Array(bin.length);
@@ -491,21 +499,16 @@ alert('本地与云端一致，无需同步。');
 finally{btn.disabled=false}}
 function openSettings(focusId){qs('settingsmask').classList.add('show');
 if(focusId){const s=qs(focusId);if(s)setTimeout(()=>s.scrollIntoView({block:'center'}),0);}}
-function openSyncDlg(){const c=syncCfg();
-qs('srepo').value=c.repo||'TKBW10/v6k1m8z3q9x4';
-qs('sbranch').value=c.branch||'main';
-qs('spath').value=c.path||'state/progress.json';
-qs('stoken').value=c.token||'';syncMsg('');openSettings('syncsect');}
+function openSyncDlg(){qs('stoken').value=syncCfg().token;syncMsg('');openSettings('syncsect');}
 function closeSyncDlg(){qs('settingsmask').classList.remove('show')}
 qs('setbtn').addEventListener('click',()=>openSettings());
 qs('setclose').addEventListener('click',closeSyncDlg);
 qs('settingsmask').addEventListener('click',e=>{if(e.target===qs('settingsmask'))closeSyncDlg();});
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeSyncDlg();});
 qs('sok').addEventListener('click',()=>{
-const cfg={repo:qs('srepo').value.trim(),branch:qs('sbranch').value.trim()||'main',
-path:qs('spath').value.trim(),token:qs('stoken').value.trim()};
-if(!cfg.repo||!cfg.path||!cfg.token){syncMsg('仓库、路径、Token 都不能为空。','err');return;}
-localStorage.setItem(SYNC_CFG,JSON.stringify(cfg));doSync();});
+const token=qs('stoken').value.trim();
+if(!token){syncMsg('请先填入 GitHub 访问令牌。','err');qs('stoken').focus();return;}
+localStorage.setItem(SYNC_CFG,JSON.stringify({token}));doSync();});
 qs('sdel').addEventListener('click',()=>{localStorage.removeItem(SYNC_CFG);qs('stoken').value='';
 syncMsg('已清除本机保存的凭证。','okc');});
 window.addEventListener('beforeunload',()=>{if(!syncNoSave)save();});
