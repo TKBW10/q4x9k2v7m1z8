@@ -182,6 +182,7 @@ main{padding:10px}
 <label class="setrow" id="swunit"><span class="rl"><span>单题模式</span><span class="rd">一次只展开一题，答完自动跳到下一题</span></span><span class="sw"><input type="checkbox" id="unit"><i></i></span></label>
 <label class="setrow" id="swauto"><span class="rl"><span>答对自动收起</span><span class="rd">答对后收起该题并跳下一题</span></span><span class="sw"><input type="checkbox" id="auto"><i></i></span></label>
 <label class="setrow" id="swshuf"><span class="rl"><span>选项乱序</span><span class="rd">每次开启重新打乱 A/B/C/D</span></span><span class="sw"><input type="checkbox" id="shuf"><i></i></span></label>
+<label class="setrow" id="swredo"><span class="rl"><span>错题重做</span><span class="rd">错题本隐藏上次选择与答案，答对后自动移出</span></span><span class="sw"><input type="checkbox" id="redo"><i></i></span></label>
 </div>
 <div class="sect">
 <h3>数据</h3>
@@ -209,19 +210,23 @@ const listEl=document.getElementById('list'),statsEl=document.getElementById('st
 barEl=document.getElementById('pbar'),testbarEl=document.getElementById('testbar'),
 resultEl=document.getElementById('result'),sheetEl=document.getElementById('sheet');
 let state={ans:{},mode:'all',kw:'',scroll:0,test:null,result:null,
-unit:false,uidx:0,auto:false,shuf:false,shufSeed:0,updatedAt:0};
+unit:false,uidx:0,auto:false,shuf:false,shufSeed:0,updatedAt:0,redo:false,redoTs:0};
 try{const s=JSON.parse(localStorage.getItem(STORE)||'{}');
 if(s&&typeof s==='object'){state.ans=s.ans||{};state.mode=s.mode==='noans'?'all':(s.mode||'all');
 state.kw=s.kw||'';state.scroll=s.scroll||0;
-state.unit=!!s.unit;state.uidx=s.uidx||0;state.auto=!!s.auto;state.shuf=!!s.shuf;state.shufSeed=s.shufSeed||0;state.updatedAt=+s.updatedAt||0;}}catch(e){}
+state.unit=!!s.unit;state.uidx=s.uidx||0;state.auto=!!s.auto;state.shuf=!!s.shuf;state.shufSeed=s.shufSeed||0;state.updatedAt=+s.updatedAt||0;
+state.redo=!!s.redo;state.redoTs=+s.redoTs||0;}}catch(e){}
 function save(){state.updatedAt=Date.now();localStorage.setItem(STORE,JSON.stringify({ans:state.ans,mode:state.mode,kw:state.kw,
-scroll:window.scrollY,unit:state.unit,uidx:state.uidx,auto:state.auto,shuf:state.shuf,shufSeed:state.shufSeed,updatedAt:state.updatedAt}));noteChange();}
+scroll:window.scrollY,unit:state.unit,uidx:state.uidx,auto:state.auto,shuf:state.shuf,shufSeed:state.shufSeed,updatedAt:state.updatedAt,
+redo:state.redo,redoTs:state.redoTs}));noteChange();}
 function qs(id){return document.getElementById(id)}
-function syncSw(){['unit','auto','shuf'].forEach(k=>{const e=qs(k);const r=e&&e.closest('.setrow');if(r)r.classList.toggle('on',e.checked);});}
+function syncSw(){['unit','auto','shuf','redo'].forEach(k=>{const e=qs(k);const r=e&&e.closest('.setrow');if(r)r.classList.toggle('on',e.checked);});}
 function esc(s){return (s||'').replace(/[&<>]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]))}
 function hasOpts(r){return ['A','B','C','D'].filter(k=>r.options&&r.options[k])}
 function entry(n){return state.ans[n]||null}
-function inLib(n){const e=entry(n);return !!(e&&e.check==='bad')}
+function inLib(n){const e=entry(n);return !!(e&&(e.lib===true||(e.lib===undefined&&e.check==='bad')))}
+function redoActive(){return state.redo&&state.mode==='wrong'&&!state.test}
+function redoFresh(n){const e=entry(n);if(!redoActive())return false;return !(e&&e.rdAt&&e.rdAt>=(state.redoTs||0))}
 
 function seedRand(seed){let s=(seed*2654435761)>>>0;
 return function(){s^=s<<13;s>>>=0;s^=s>>>17;s^=s<<5;s>>>=0;return s/4294967296;}}
@@ -278,18 +283,19 @@ if(state.test&&state.test.phase==='run'){
 statsEl.textContent='模拟测试中：第 '+(state.test.i+1)+' / '+state.test.ids.length+
 ' 题　·　本卷已作答 '+Object.keys(state.test.answers).filter(n=>state.test.answers[n]!=null).length+' 题';}
 else{statsEl.textContent='共 '+total+' 题　·　已答 '+answered+' 题　·　正确率 '+acc+
-'%　·　错题 '+lib+' 题'+(shown!=null?'　·　显示 '+shown+' 题':'');}}
+'%　·　错题 '+lib+' 题'+(shown!=null?'　·　显示 '+shown+' 题':'')+(redoActive()?'　·　重做模式':'');}}
 
 function statusBadge(r,testMode){const ord=order(r);
 if(testMode){const m=state.test.answers[r.num];
 if(m&&hasOpts(r).length)return '<span class="sel">已选 '+'ABCD'[ord.indexOf(m)]+'</span>';
 return '';}
+if(redoFresh(r.num))return '';
 const e=entry(r.num);if(!e)return '';
 if(!e.check)return e.chosen!==undefined?'<span class="sel">已选 '+'ABCD'[ord.indexOf(e.chosen)]+'</span>':'';
 return e.check==='ok'?'<span class="ok">✓ 已答对</span>':'<span class="bad">✗ 错题</span>';}
 
 function cardInner(r,testMode){
-const e=entry(r.num)||{};const keys=hasOpts(r);const ord=order(r);
+let e=entry(r.num)||{};if(redoFresh(r.num))e={};const keys=hasOpts(r);const ord=order(r);
 const dmap={};ord.forEach((k,i)=>dmap[k]='ABCD'[i]);
 const collapsed=!testMode&&e.collapse===true&&e.check==='ok';
 let optsHtml='';
@@ -386,7 +392,7 @@ function submitTest(){const tb=state.test;let correct=0;const wrong=[];
 tb.ids.forEach(n=>{const r=byNum[n];const chosen=tb.answers[n]!=null?tb.answers[n]:null;
 const ok=chosen===r.answer;
 state.ans[n]=state.ans[n]||{};
-state.ans[n].chosen=chosen;state.ans[n].check=ok?'ok':'bad';state.ans[n].revealed=true;
+state.ans[n].chosen=chosen;state.ans[n].check=ok?'ok':'bad';state.ans[n].revealed=true;state.ans[n].lib=!ok;
 if(ok)correct++;else wrong.push(n);});
 save();tb.phase='done';
 state.result={n:tb.ids.length,correct:correct,acc:Math.round(correct/tb.ids.length*100),wrong:wrong};
@@ -432,13 +438,18 @@ const num=+card.dataset.q,r=byNum[num];if(!r)return;
 const rev=e.target.closest('[data-rev]'),lib=e.target.closest('[data-lib]'),opt=e.target.closest('.opt');
 const testRun=!!(state.test&&state.test.phase==='run');
 if(rev){const en=entry(num)||{};en.revealed=!en.revealed;
-if(!testRun&&en.revealed&&!en.check)en.check='bad';
+if(!testRun&&en.revealed){if(redoActive())en.rdAt=Date.now();
+if(!en.check)en.check='bad';if(en.check==='bad')en.lib=true;}
 state.ans[num]=en;save();render();return;}
-if(lib){const en=entry(num)||{};en.check=inLib(num)?'ok':'bad';state.ans[num]=en;save();render();return;}
+if(lib){const en=entry(num)||{};
+if(inLib(num)){en.lib=false;if(en.check==='bad')en.check='';}
+else{en.lib=true;en.check='bad';}
+state.ans[num]=en;save();render();return;}
 if(opt){const k=opt.dataset.opt;
 if(testRun){state.test.answers[num]=(state.test.answers[num]===k?null:k);renderTest();return;}
 const en=entry(num)||{};en.chosen=k;
-if(r.answer){en.check=(k===r.answer?'ok':'bad');en.revealed=true;}
+if(redoActive())en.rdAt=Date.now();
+if(r.answer){en.check=(k===r.answer?'ok':'bad');en.revealed=true;en.lib=en.check==='bad';}
 if(state.auto&&en.check==='ok'){en.collapse=true;state.ans[num]=en;autoAdvance(num);}
 else{state.ans[num]=en;}
 save();render();return;}
@@ -447,15 +458,17 @@ if(en.collapse&&en.check==='ok'){en.collapse=false;state.ans[num]=en;save();rend
 });
 
 qs('mode').value=state.mode;qs('kw').value=state.kw;
-qs('unit').checked=state.unit;qs('auto').checked=state.auto;qs('shuf').checked=state.shuf;syncSw();
+qs('unit').checked=state.unit;qs('auto').checked=state.auto;qs('shuf').checked=state.shuf;qs('redo').checked=state.redo;syncSw();
 qs('mode').addEventListener('change',()=>{state.mode=qs('mode').value;save();render();});
 qs('kw').addEventListener('input',()=>{state.kw=qs('kw').value;save();render();});
 qs('unit').addEventListener('change',()=>{state.unit=qs('unit').checked;syncSw();save();window.scrollTo(0,0);render();});
 qs('auto').addEventListener('change',()=>{state.auto=qs('auto').checked;syncSw();save();});
 qs('shuf').addEventListener('change',()=>{state.shuf=qs('shuf').checked;if(state.shuf)state.shufSeed=Math.floor(Math.random()*1e9);syncSw();save();render();});
+qs('redo').addEventListener('change',()=>{state.redo=qs('redo').checked;
+if(state.redo)state.redoTs=Date.now();syncSw();save();render();});
 qs('starttest').addEventListener('click',startTest);
 qs('clearlib').addEventListener('click',()=>{if(!confirm('确定清空错题本？'))return;
-DATA.forEach(r=>{if(inLib(r.num))state.ans[r.num].check='ok';});save();render();});
+DATA.forEach(r=>{if(inLib(r.num)){state.ans[r.num].check='ok';state.ans[r.num].lib=false;}});save();render();});
 qs('clearprog').addEventListener('click',()=>{if(!confirm('确定清除所有作答进度？'))return;
 state.ans={};save();render();});
 qs('reset').addEventListener('click',()=>{qs('kw').value='';qs('mode').value='all';
