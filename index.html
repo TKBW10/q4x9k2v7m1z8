@@ -39,7 +39,12 @@ padding:16px 18px;margin-bottom:14px}
 .card.result .big{font-size:26px;font-weight:700;color:var(--blue);margin:6px 0}
 .tags{display:flex;gap:8px;align-items:center;margin-bottom:8px;font-size:12px;flex-wrap:wrap}
 .badge{background:#243349;color:#9fc0ff;border-radius:6px;padding:2px 8px}
-.type{color:var(--mut)}
+.ibtn{flex:none;display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;
+padding:0;background:transparent;border:1px solid var(--line);border-radius:7px;color:var(--mut)}
+.ibtn svg{width:15px;height:15px;display:block}
+.ibtn:hover:not(:disabled){border-color:var(--blue);color:var(--fg)}
+.ibtn.on{color:var(--blue);border-color:rgba(76,141,255,.55)}
+.ibtn[data-lib].on{color:var(--green);border-color:rgba(46,204,113,.5)}
 .ok{background:rgba(46,204,113,.16);color:#2ecc71;border-radius:6px;padding:2px 8px}
 .bad{background:rgba(255,92,92,.16);color:#ff5c5c;border-radius:6px;padding:2px 8px}
 .sel{background:rgba(76,141,255,.16);color:#9fc0ff;border-radius:6px;padding:2px 8px}
@@ -138,6 +143,8 @@ main{padding:10px}
 .testbar button{flex:0 1 auto;min-height:30px;padding:3px 8px;font-size:12px}
 .card{padding:13px}
 .opt{padding:11px 12px;min-height:44px}
+.ibtn{width:30px;height:30px}
+.ibtn svg{width:16px;height:16px}
 .sbtn{width:40px;height:40px}
 .sheetmask{padding:0}
 .panel{border-radius:0;min-height:100%;max-width:none;border:0;padding:16px}
@@ -298,14 +305,14 @@ const ansInner=keys.length
 ?('<b>答案：</b><b class="ansL">'+shown+'</b>'+(state.shuf&&r.answer&&shown!==r.answer?'<span class="mut">（原'+r.answer+'）</span>':''))
 :('<b>答案：</b>'+fmt(r.answer));
 const ansHtml='<div class="ans'+(showAns?' show':'')+'">'+ansInner+'</div>';
-let act='<div class="act"><button class="ghost" data-rev="1">显示/隐藏答案</button>';
-if(!testMode){act+='<button class="ghost" data-lib="1">'+(inLib(r.num)?'★ 移出错题本':'☆ 加入错题本')+'</button>';}
-act+='</div>';
-return '<div class="tags"><span class="badge">'+r.num+'</span><span class="type">'+r.type+
-(r.group?' · 分组'+r.group:'')+'</span>'+statusBadge(r,testMode)+
+const eyeIco='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>';
+const starIco='<svg viewBox="0 0 24 24" fill="'+(inLib(r.num)?'currentColor':'none')+'" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><polygon points="12 2 15.1 8.6 22 9.3 16.8 14 18.2 21 12 17.3 5.8 21 7.2 14 2 9.3 8.9 8.6"/></svg>';
+let act='<button class="ibtn'+(showAns?' on':'')+'" data-rev="1" title="显示 / 隐藏答案" aria-label="显示或隐藏答案">'+eyeIco+'</button>';
+if(!testMode){act+='<button class="ibtn'+(inLib(r.num)?' on':'')+'" data-lib="1" title="'+(inLib(r.num)?'移出错题本':'加入错题本')+'" aria-label="加入或移出错题本">'+starIco+'</button>';}
+return '<div class="tags"><span class="badge">'+r.num+'</span>'+act+statusBadge(r,testMode)+
 (collapsed?'<span class="mut" style="margin-left:auto">已收起 · 点卡片展开</span>':'')+'</div>'+
 '<div class="stem">'+(collapsed?'<span class="q">'+esc((r.stem||'').split('\n')[0])+'</span>':fmt(r.stem))+'</div>'+
-optsHtml+ansHtml+act;}
+optsHtml+ansHtml;}
 
 let _scrollTo=null;
 function renderList(){
