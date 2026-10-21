@@ -21,6 +21,7 @@ h1 span{color:var(--blue)}
 .pbar{height:100%;width:0;background:linear-gradient(90deg,#4c8dff,#2ecc71);transition:width .25s}
 .stats{color:var(--mut);font-size:13px}
 .bar{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;align-items:center}
+.bar .kwbtn{display:none}
 select,input{background:var(--card);color:var(--fg);border:1px solid var(--line);
 border-radius:8px;padding:7px 10px;font-size:13px;outline:none}
 input{min-width:180px;flex:1}
@@ -49,6 +50,7 @@ background:#141b28;border-radius:9px;padding:9px 12px;cursor:pointer;
 transition:.15s;font-size:14px;white-space:pre-wrap}
 .opt:hover{border-color:var(--blue)}
 .opt .k{font-weight:700;color:var(--blue);flex:0 0 18px}
+.opt>span{min-width:0;overflow-wrap:anywhere}
 .opt.correct{background:rgba(46,204,113,.14);border-color:var(--green)}
 .opt.wrong{background:rgba(255,92,92,.14);border-color:var(--red)}
 .opt.sel{background:rgba(76,141,255,.14);border-color:var(--blue)}
@@ -116,18 +118,29 @@ background:#8b9bb4;pointer-events:none;transition:transform .18s,background .18s
 .smsg.err{color:var(--red)}
 .smsg.okc{color:var(--green)}
 @media(max-width:720px){
-header{padding:12px}
-h1{font-size:16px}
-main{padding:12px}
-.bar{gap:6px}
-.bar select,.bar input,.bar button{flex:1 1 44%;min-width:120px;min-height:38px}
-.sheetmask{padding:0}
-.panel{border-radius:0;min-height:100%;max-width:none;border:0;padding:16px}
-.testbar{gap:6px}
-.testbar button{flex:1 1 40%}
+header{padding:8px 12px;position:static}
+.htop{gap:8px;align-items:center}
+h1{font-size:15px;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+h1 span{display:none}
+.iconbtn{padding:4px 10px;font-size:12px;min-height:28px}
+.progresswrap{height:4px;margin:6px 0 4px}
+.stats{font-size:11px;line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bar{gap:6px;margin-top:6px}
+.bar select{flex:1 1 0;min-width:0;height:32px;padding:4px 6px;font-size:12px}
+.bar #kw{display:none}
+.bar.searching #kw{display:block;flex:1 1 100%;order:4;min-width:0;height:32px;padding:4px 8px;font-size:12px}
+.bar .kwbtn{display:block;order:3;flex:0 0 auto;min-height:32px;padding:4px 8px;font-size:12px}
+.bar.searching .kwbtn{background:var(--card);border:1px solid var(--blue);color:var(--blue)}
+.bar #starttest{flex:0 0 auto;min-height:32px;padding:4px 10px;font-size:12px}
+main{padding:10px}
+.testbar{gap:6px;margin-top:6px;padding-top:6px;font-size:12px}
+.testbar span{flex:1 1 100%}
+.testbar button{flex:0 1 auto;min-height:30px;padding:3px 8px;font-size:12px}
 .card{padding:13px}
 .opt{padding:11px 12px;min-height:44px}
 .sbtn{width:40px;height:40px}
+.sheetmask{padding:0}
+.panel{border-radius:0;min-height:100%;max-width:none;border:0;padding:16px}
 }
 </style>
 </head>
@@ -144,7 +157,7 @@ main{padding:12px}
 <option value="shuffle">随机打乱</option>
 <option value="wrong">只看错题本</option>
 <option value="noans">只看有答案的</option></select>
-<input id="kw" placeholder="搜索题干 / 答案关键词…">
+<input id="kw" placeholder="搜索题干 / 答案关键词…"><button class="ghost kwbtn" id="kwbtn">搜索</button>
 <select id="tn"><option value="10">抽 10 题</option><option value="20">抽 20 题</option>
 <option value="30">抽 30 题</option><option value="50">抽 50 题</option></select>
 <button id="starttest">开始模拟测试</button>
@@ -256,8 +269,8 @@ barEl.style.width=(answered/total*100)+'%';
 if(state.test&&state.test.phase==='run'){
 statsEl.textContent='模拟测试中：第 '+(state.test.i+1)+' / '+state.test.ids.length+
 ' 题　·　本卷已作答 '+Object.keys(state.test.answers).filter(n=>state.test.answers[n]!=null).length+' 题';}
-else{statsEl.textContent='共 '+total+' 题　·　已作答 '+answered+' 题　·　答对 '+correct+
-'　·　正确率 '+acc+'%　·　错题本 '+lib+' 题'+(shown!=null?'　·　当前显示 '+shown+' 题':'');}}
+else{statsEl.textContent='共 '+total+' 题　·　已答 '+answered+' 题　·　正确率 '+acc+
+'%　·　错题 '+lib+' 题'+(shown!=null?'　·　显示 '+shown+' 题':'');}}
 
 function statusBadge(r,testMode){const ord=order(r);
 if(testMode){const m=state.test.answers[r.num];
@@ -502,6 +515,8 @@ if(focusId){const s=qs(focusId);if(s)setTimeout(()=>s.scrollIntoView({block:'cen
 function openSyncDlg(){qs('stoken').value=syncCfg().token;syncMsg('');openSettings('syncsect');}
 function closeSyncDlg(){qs('settingsmask').classList.remove('show')}
 qs('setbtn').addEventListener('click',()=>openSettings());
+qs('kwbtn').addEventListener('click',()=>{
+if(qs('kw').parentNode.classList.toggle('searching'))qs('kw').focus();});
 qs('setclose').addEventListener('click',closeSyncDlg);
 qs('settingsmask').addEventListener('click',e=>{if(e.target===qs('settingsmask'))closeSyncDlg();});
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeSyncDlg();});
