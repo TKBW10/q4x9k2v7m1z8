@@ -411,7 +411,7 @@ s+='题目：'+(r.stem||'').trim()+'\n';
 if(keys.length){s+=ord.map((k,i)=>'ABCD'[i]+'. '+String(r.options[k]).trim()).join('\n')+'\n';}
 if(r.answer){s+='正确答案：'+((keys.length&&dmap[r.answer])||r.answer)+'\n';}
 return s.trim();}
-function copyCard(r,btn){const txt=copyPrompt(r);const ok=()=>{toast('已复制到剪贴板，粘贴给 AI 即可');
+function copyCard(r,btn){const txt=copyPrompt(r);const ok=()=>{toast('已复制到剪贴板');
 if(btn){btn.classList.add('on');setTimeout(()=>btn.classList.remove('on'),1200);}};
 const fb=()=>{try{const ta=document.createElement('textarea');ta.value=txt;
 ta.style.position='fixed';ta.style.top='-1000px';document.body.appendChild(ta);
