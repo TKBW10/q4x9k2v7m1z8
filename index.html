@@ -124,6 +124,11 @@ background:#8b9bb4;pointer-events:none;transition:transform .18s,background .18s
 .setrow button{flex:none}
 .sect input[type=text],.sect input[type=password]{width:100%;min-width:0;flex:none}
 .sect .act{margin-top:14px}
+.toast{position:fixed;left:50%;bottom:26px;transform:translate(-50%,10px);z-index:30;
+background:rgba(46,204,113,.96);color:#07160d;font-size:13px;font-weight:600;
+padding:9px 16px;border-radius:9px;opacity:0;pointer-events:none;transition:.18s}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+.toast.err{background:rgba(255,92,92,.96);color:#1a0a0a}
 .smsg{min-height:17px;margin-top:9px;font-size:12px;color:var(--mut)}
 .smsg.err{color:var(--red)}
 .smsg.okc{color:var(--green)}
@@ -379,6 +384,8 @@ const ansHtml='<div class="ans'+(showAns?' show':'')+'">'+ansInner+'</div>';
 const eyeIco='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>';
 const starIco='<svg viewBox="0 0 24 24" fill="'+(inLib(r.num)?'currentColor':'none')+'" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><polygon points="12 2 15.1 8.6 22 9.3 16.8 14 18.2 21 12 17.3 5.8 21 7.2 14 2 9.3 8.9 8.6"/></svg>';
 let ico='<button class="ibtn'+(showAns?' on':'')+(revealNum===r.num?' pending':'')+'" data-rev="1" title="显示 / 隐藏答案" aria-label="显示或隐藏答案">'+eyeIco+'</button>';
+if(!testMode||gradedTest()){const copyIco='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M6 15H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v1"/></svg>';
+ico+='<button class="ibtn" data-copy="1" title="复制题目 + 讲题提示词" aria-label="复制题目与提示词">'+copyIco+'</button>';}
 if(!testMode){ico+='<button class="ibtn'+(inLib(r.num)?' on':'')+'" data-lib="1" title="'+(inLib(r.num)?'移出错题本':'加入错题本')+'" aria-label="加入或移出错题本">'+starIco+'</button>';}
 if(!testMode&&paneIdx===0){const famIco='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8.4 12.6l2.5 2.5 4.7-5.2"/></svg>';
 ico+='<button class="ibtn" data-fam="1" title="已掌握，不再出现在三页中" aria-label="标记为已掌握">'+famIco+'</button>';}
@@ -387,6 +394,31 @@ return '<div class="tags"><span class="badge">'+r.num+'</span>'+statusBadge(r,te
 (collapsed?'<span class="mut">已收起 · 点卡片展开</span>':'')+act+'</div>'+
 '<div class="stem">'+(collapsed?'<span class="q">'+esc((r.stem||'').split('\n')[0])+'</span>':fmt(r.stem))+'</div>'+
 optsHtml+ansHtml;}
+
+let _toastTimer=null;
+function toast(t,bad){let el=qs('toast');
+if(!el){el=document.createElement('div');el.id='toast';el.className='toast';document.body.appendChild(el);}
+el.textContent=t;el.className='toast show'+(bad?' err':'');
+clearTimeout(_toastTimer);_toastTimer=setTimeout(()=>{el.className='toast';},1600);}
+/* 生成「题目 + 讲题提示词」文本，选项按当前显示顺序（随机模式下与屏幕一致） */
+function copyPrompt(r){const keys=hasOpts(r),ord=order(r);
+const dmap={};ord.forEach((k,i)=>dmap[k]='ABCD'[i]);
+let s='这是一道 C 语言习题，请按下面三点帮我讲清楚：\n';
+s+='1. 解题思路：本题考查的知识点，以及从题干入手判断的步骤；\n';
+s+='2. 逐项解析：A、B、C、D 每个选项为什么对、为什么错；\n';
+s+='3. 易错点：常见误区与需要一并记住的相关知识点。\n\n';
+s+='题目：'+(r.stem||'').trim()+'\n';
+if(keys.length){s+=ord.map((k,i)=>'ABCD'[i]+'. '+String(r.options[k]).trim()).join('\n')+'\n';}
+if(r.answer){s+='正确答案：'+((keys.length&&dmap[r.answer])||r.answer)+'\n';}
+return s.trim();}
+function copyCard(r,btn){const txt=copyPrompt(r);const ok=()=>{toast('已复制到剪贴板，粘贴给 AI 即可');
+if(btn){btn.classList.add('on');setTimeout(()=>btn.classList.remove('on'),1200);}};
+const fb=()=>{try{const ta=document.createElement('textarea');ta.value=txt;
+ta.style.position='fixed';ta.style.top='-1000px';document.body.appendChild(ta);
+ta.select();ta.setSelectionRange(0,txt.length);
+const d=document.execCommand('copy');document.body.removeChild(ta);
+if(d)ok();else toast('复制被浏览器拦截，请手动选中文字复制',1);}catch(err){toast('复制被浏览器拦截，请手动选中文字复制',1);}};
+if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(txt).then(ok,fb);}else fb();}
 
 let _scrollTo=null;
 function renderList(){
@@ -603,7 +635,9 @@ const card=e.target.closest('.card');if(!card)return;
 const num=+card.dataset.q,r=byNum[num];if(!r)return;
 const rev=e.target.closest('[data-rev]'),lib=e.target.closest('[data-lib]'),
 fam=e.target.closest('[data-fam]'),opt=e.target.closest('.opt');
+const cp=e.target.closest('[data-copy]');
 const testRun=!!(state.test&&state.test.phase==='run');
+if(cp){copyCard(r,cp);return;}
 if(rev){if(!testRun&&paneMode()){
 if(revealTimer&&revealNum===num){undoReveal(num);return;}
 const e0=entry(num)||{};
