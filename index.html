@@ -128,15 +128,11 @@ background:#8b9bb4;pointer-events:none;transition:transform .18s,background .18s
 .panes{display:flex;align-items:flex-start;will-change:transform}
 .pane{flex:0 0 100%;min-width:100%;box-sizing:border-box;padding-bottom:26px}
 .plist{position:relative}
-.panehead{display:flex;align-items:center;gap:8px;margin:0 0 10px;padding:0 2px;
-font-size:13px;color:var(--mut)}
-.panehead .pmark{width:8px;height:8px;border-radius:50%;background:var(--mut);flex:none}
-.panehead .pt{font-weight:600}
-.panehead b{font-size:15px;color:var(--fg)}
-.pact{margin-left:auto;flex:none;background:transparent;border:1px solid var(--line);
-color:var(--mut);border-radius:7px;min-height:26px;padding:2px 10px;font-size:12px;cursor:pointer}
-.pact.on{border-color:var(--blue);color:#9fc0ff;background:rgba(76,141,255,.14)}
-.pact:disabled{opacity:.35}
+.pact{display:none;flex:none;background:var(--card);border:1px solid var(--line);
+color:var(--fg);border-radius:8px;min-height:32px;padding:5px 12px;font-size:13px;cursor:pointer}
+.pact.show{display:inline-flex;align-items:center}
+.pact.on{border-color:var(--blue);color:#9fc0ff;background:rgba(76,141,255,.18)}
+.pact:disabled{opacity:.35;cursor:default}
 .seg{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;flex:none}
 .segb{border:0;border-radius:0;background:var(--card);color:var(--mut);
 min-height:32px;padding:5px 12px;font-size:13px}
@@ -171,8 +167,7 @@ h1 span{display:none}
 .bar.searching .kwbtn{background:var(--card);border:1px solid var(--blue);color:var(--blue)}
 .segb{min-height:32px;padding:4px 10px;font-size:12px}
 .arrowbtn{display:none!important}
-.panehead{font-size:12px;margin-bottom:8px}
-.panehead b{font-size:14px}
+.pact{min-height:32px;padding:4px 10px;font-size:12px}
 .bar #starttest{flex:0 0 auto;min-height:32px;padding:4px 10px;font-size:12px}
 main{padding:10px}
 .testbar{gap:6px;margin-top:6px;padding-top:6px;font-size:12px}
@@ -198,7 +193,9 @@ main{padding:10px}
 <div class="progresswrap"><div class="pbar" id="pbar"></div></div>
 <div class="stats" id="stats"></div>
 <div class="bar">
-<div class="seg"><button class="segb" id="ordseq" data-ord="all">顺序</button><button class="segb" id="ordshuf" data-ord="shuffle">随机</button></div>
+<span class="seg" id="segord"><button class="segb" id="ordseq" data-ord="all">顺序</button><button class="segb" id="ordshuf" data-ord="shuffle">随机</button></span>
+<button class="pact" id="okredo" title="把这些题移回「未做的题」，重新做一遍">移回未做</button>
+<button class="pact" id="badredo" title="隐藏上次选择与答案，重新作答；答对后自动移出">重做</button>
 <input id="kw" placeholder="搜索题干 / 答案关键词…"><button class="ghost kwbtn" id="kwbtn">搜索</button>
 <select id="tn"><option value="10">抽 10 题</option><option value="20">抽 20 题</option>
 <option value="30">抽 30 题</option><option value="50">抽 50 题</option></select>
@@ -210,18 +207,9 @@ main{padding:10px}
 <div id="result"></div><div id="sheet"></div>
 <div class="paneswrap" id="paneswrap">
 <div class="panes" id="panes">
-<div class="pane" data-pane="0">
-<div class="panehead"><i class="pmark"></i><span class="pt">答对的题</span><b id="cntOk">0</b><button class="pact" id="okredo" title="把这些题移回「未做的题」，重新做一遍">移回未做</button></div>
-<div class="plist" id="pOk"></div>
-</div>
-<div class="pane todo" data-pane="1">
-<div class="panehead"><i class="pmark"></i><span class="pt">未做的题</span><b id="cntTodo">0</b></div>
-<div class="plist" id="pTodo"></div>
-</div>
-<div class="pane" data-pane="2">
-<div class="panehead"><i class="pmark"></i><span class="pt">做错的题</span><b id="cntBad">0</b><button class="pact" id="badredo" title="隐藏上次选择与答案，重新作答；答对后自动移出">重做</button></div>
-<div class="plist" id="pBad"></div>
-</div>
+<div class="pane" data-pane="0"><div class="plist" id="pOk"></div></div>
+<div class="pane" data-pane="1"><div class="plist" id="pTodo"></div></div>
+<div class="pane" data-pane="2"><div class="plist" id="pBad"></div></div>
 </div>
 </div>
 <div id="list"></div>
@@ -338,8 +326,15 @@ barEl.style.width=(answered/total*100)+'%';
 if(state.test&&state.test.phase==='run'){
 statsEl.textContent='模拟测试中：第 '+(state.test.i+1)+' / '+state.test.ids.length+
 ' 题　·　本卷已作答 '+Object.keys(state.test.answers).filter(n=>state.test.answers[n]!=null).length+' 题';}
+else if(paneMode()){const L=paneLists();
+if(pageIdx===0)statsEl.textContent='答对的题　·　'+L.ok.length+' 题　·　已答 '+graded+
+' 题　·　正确率 '+acc+'%';
+else if(pageIdx===2)statsEl.textContent='做错的题　·　'+L.bad.length+' 题　·　已答 '+graded+
+' 题'+(redoActive()?'　·　重做模式':'');
+else statsEl.textContent='未做的题　·　'+L.todo.length+' 题　·　共 '+total+
+' 题'+(shown!=null?'　·　显示 '+shown+' 题':'');}
 else{statsEl.textContent='共 '+total+' 题　·　已答 '+answered+' 题　·　正确率 '+acc+
-'%　·　错题 '+lib+' 题'+(shown!=null?'　·　显示 '+shown+' 题':'')+(redoActive()?'　·　重做模式':'');}}
+'%　·　错题 '+lib+' 题'+(shown!=null?'　·　显示 '+shown+' 题':'');}}
 
 function statusBadge(r,testMode){const ord=order(r);
 if(testMode){if(gradedTest()&&r.answer){const a2=state.test.answers[r.num];
@@ -409,12 +404,22 @@ let pageIdx=1,dragX=0,dragging=false,tX=0,tY=0,revealTimer=null,revealNum=null;
 function paneEls(){return [qs('pOk'),qs('pTodo'),qs('pBad')]}
 function paneW(){const w=qs('paneswrap');return w?w.clientWidth:0}
 function sizeWrap(){const w=qs('paneswrap'),p=paneEls()[pageIdx];
-if(!w||!p)return;w.style.height=p.offsetHeight+'px';}
+if(!w||!p)return;const pane=p.closest('.pane');
+w.style.height=(pane||p).offsetHeight+'px';}
 function applyPane(anim){const el=qs('panes');
 el.style.transition=anim===false?'none':'';
 el.style.transform='translateX('+(-pageIdx*paneW()+dragX)+'px)';}
-function goPane(i){i=Math.max(0,Math.min(2,i));dragX=0;pageIdx=i;applyPane(true);updateArrows();
-requestAnimationFrame(sizeWrap);}
+function goPane(i){i=Math.max(0,Math.min(2,i));dragX=0;pageIdx=i;applyPane(true);
+updateArrows();updatePageTools();updateStats();requestAnimationFrame(sizeWrap);}
+/* 工具栏按钮随当前页切换：对页=移回未做，未做页=顺序/随机，错页=重做 */
+function updatePageTools(){const okb=qs('okredo'),badb=qs('badredo'),seg=qs('segord');
+if(!okb||!badb)return;
+const pane=paneMode(),onOk=pane&&pageIdx===0,onBad=pane&&pageIdx===2;
+okb.classList.toggle('show',onOk);badb.classList.toggle('show',onBad);
+if(seg)seg.style.display=(pane&&pageIdx!==1)?'none':'';
+okb.disabled=!paneLists().ok.length;
+badb.classList.toggle('on',!!state.redo);
+badb.textContent=state.redo?'重做中':'重做';}
 function updateArrows(){const on=window.innerWidth>=1060&&paneMode();
 const l=qs('arrL'),r=qs('arrR');
 const canL=on&&pageIdx>0,canR=on&&pageIdx<2;
@@ -431,13 +436,11 @@ if(!arr.length){el.innerHTML='<div class="empty">'+tip+'</div>';return;}
 if(state.test&&state.test.phase==='done'&&i!==1)el.innerHTML=arr.map(r=>'<div class="card" data-q="'+r.num+'">'+cardInner(r,true)+'</div>').join('');
 else el.innerHTML=arr.map(r=>'<div class="card" data-q="'+r.num+'">'+cardInner(r,false)+'</div>').join('');}
 function fillPanes(){const L=paneLists();
-qs('cntOk').textContent=L.ok.length;qs('cntTodo').textContent=L.todo.length;qs('cntBad').textContent=L.bad.length;
 const graded=state.test&&state.test.phase==='done';
 setPane(0,L.ok,graded?'本次没有答对的题':'还没有答对的题');
 setPane(1,graded?[]:L.todo,'没有匹配的题目');
 setPane(2,L.bad,graded?'本次没有答错或未作答的题':(redoActive()?'没有待重做的错题':'还没有做错的题'));
-const br=qs('badredo');if(br)br.classList.toggle('on',!!state.redo);
-const ob=qs('okredo');if(ob)ob.disabled=!L.ok.length;}
+updatePageTools();}
 function clearRevealUI(){document.querySelectorAll('.ibtn.pending').forEach(b=>b.classList.remove('pending'));
 document.querySelectorAll('.card.moving').forEach(c=>c.classList.remove('moving'));}
 function flyAway(card,dir,cb){const list=card.parentNode;
@@ -465,8 +468,7 @@ if(cur===target){if(card)card.innerHTML=cardInner(r,false);fillCounts();updateSt
 if(cur>=0&&card)flyAway(card,target<cur?-1:1,afterMove);
 else afterMove();
 function afterMove(){fillPanes();sizeWrap();updateStats();}}
-function fillCounts(){const L=paneLists();
-qs('cntOk').textContent=L.ok.length;qs('cntTodo').textContent=L.todo.length;qs('cntBad').textContent=L.bad.length;}
+function fillCounts(){updatePageTools();}
 function stopReveal(){clearTimeout(revealTimer);revealTimer=null;revealNum=null;clearRevealUI();}
 /* 立即显示答案，3 秒后自动移入「做错的题」 */
 function revealNow(n){const r=byNum[n];if(!r)return;
@@ -504,7 +506,7 @@ if(i===tb.i&&!graded)cls+=' cur';
 return '<button class="'+cls+'" data-sheet="'+i+'">'+(i+1)+'</button>';}).join('')+'</div></div>';}
 
 function renderTest(){const tb=state.test,r=byNum[tb.ids[tb.i]];
-qs('paneswrap').style.display='none';updateArrows();
+qs('paneswrap').style.display='none';updateArrows();updatePageTools();
 testbarEl.style.display='flex';
 testbarEl.innerHTML='<span>模拟测试 第 '+(tb.i+1)+' / '+tb.ids.length+' 题</span>'+
 '<button class="ghost" data-nav="prev" '+(tb.i===0?'disabled':'')+'>上一题</button>'+
@@ -526,7 +528,7 @@ testbarEl.style.display='none';
 sheetEl.innerHTML=state.test?sheetHtml():'';
 resultEl.innerHTML=state.result?resultHtml(state.result):'';
 if(state.unit&&!state.test){qs('paneswrap').style.display='none';qs('list').style.display='';
-renderList();updateArrows();return;}
+renderList();updateArrows();updatePageTools();return;}
 qs('paneswrap').style.display='';qs('list').style.display='none';
 renderList();}
 
