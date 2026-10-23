@@ -348,7 +348,7 @@ const e=entry(r.num);if(!e)return '';
 if(!e.check)return e.chosen!==undefined?'<span class="sel">已选 '+'ABCD'[ord.indexOf(e.chosen)]+'</span>':'';
 return e.check==='ok'?'':'<span class="bad">✗ 错题</span>';}
 
-function cardInner(r,testMode){
+function cardInner(r,testMode,paneIdx){
 let e=entry(r.num)||{};if(redoFresh(r.num))e={};const keys=hasOpts(r);const ord=order(r);
 const dmap={};ord.forEach((k,i)=>dmap[k]='ABCD'[i]);
 const collapsed=!testMode&&e.collapse===true&&e.check==='ok';
@@ -372,6 +372,8 @@ const eyeIco='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-
 const starIco='<svg viewBox="0 0 24 24" fill="'+(inLib(r.num)?'currentColor':'none')+'" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><polygon points="12 2 15.1 8.6 22 9.3 16.8 14 18.2 21 12 17.3 5.8 21 7.2 14 2 9.3 8.9 8.6"/></svg>';
 let ico='<button class="ibtn'+(showAns?' on':'')+(revealNum===r.num?' pending':'')+'" data-rev="1" title="显示 / 隐藏答案" aria-label="显示或隐藏答案">'+eyeIco+'</button>';
 if(!testMode){ico+='<button class="ibtn'+(inLib(r.num)?' on':'')+'" data-lib="1" title="'+(inLib(r.num)?'移出错题本':'加入错题本')+'" aria-label="加入或移出错题本">'+starIco+'</button>';}
+if(!testMode&&paneIdx===0){const famIco='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8.4 12.6l2.5 2.5 4.7-5.2"/></svg>';
+ico+='<button class="ibtn" data-fam="1" title="已掌握，不再出现在三页中" aria-label="标记为已掌握">'+famIco+'</button>';}
 const act='<span class="icog">'+ico+'</span>';
 return '<div class="tags"><span class="badge">'+r.num+'</span>'+statusBadge(r,testMode)+
 (collapsed?'<span class="mut">已收起 · 点卡片展开</span>':'')+act+'</div>'+
@@ -427,6 +429,7 @@ l.classList.toggle('show',canL);r.classList.toggle('show',canR);
 l.disabled=!canL;r.disabled=!canR;}
 function paneLists(){const base=ordered(pool());const ok=[],todo=[],bad=[];
 base.forEach(r=>{const e=entry(r.num);
+if(e&&e.fam===true)return;
 if(e&&e.check==='ok')ok.push(r);
 else if(e&&e.check==='bad')bad.push(r);
 else todo.push(r);});
@@ -434,7 +437,7 @@ return {ok:ok,todo:todo,bad:bad};}
 function setPane(i,arr,tip){const el=paneEls()[i];if(!el)return;
 if(!arr.length){el.innerHTML='<div class="empty">'+tip+'</div>';return;}
 if(state.test&&state.test.phase==='done'&&i!==1)el.innerHTML=arr.map(r=>'<div class="card" data-q="'+r.num+'">'+cardInner(r,true)+'</div>').join('');
-else el.innerHTML=arr.map(r=>'<div class="card" data-q="'+r.num+'">'+cardInner(r,false)+'</div>').join('');}
+else el.innerHTML=arr.map(r=>'<div class="card" data-q="'+r.num+'">'+cardInner(r,false,i)+'</div>').join('');}
 function fillPanes(){const L=paneLists();
 const graded=state.test&&state.test.phase==='done';
 setPane(0,L.ok,graded?'本次没有答对的题':'还没有答对的题');
@@ -590,7 +593,8 @@ const ordb=e.target.closest('[data-ord]');
 if(ordb){state.mode=ordb.dataset.ord;cache.key=null;updateSeg();save();render();return;}
 const card=e.target.closest('.card');if(!card)return;
 const num=+card.dataset.q,r=byNum[num];if(!r)return;
-const rev=e.target.closest('[data-rev]'),lib=e.target.closest('[data-lib]'),opt=e.target.closest('.opt');
+const rev=e.target.closest('[data-rev]'),lib=e.target.closest('[data-lib]'),
+fam=e.target.closest('[data-fam]'),opt=e.target.closest('.opt');
 const testRun=!!(state.test&&state.test.phase==='run');
 if(rev){if(!testRun&&paneMode()){
 if(revealTimer&&revealNum===num){undoReveal(num);return;}
@@ -608,6 +612,11 @@ if(en.rv)delete en.rv;
 state.ans[num]=en;save();
 if(paneMode()&&!testRun){cancelReveal(num);settle(num,r,card,en);return;}
 render();return;}
+if(fam&&!testRun){const en=entry(num)||{};
+cancelReveal(num);en.fam=true;state.ans[num]=en;save();
+if(paneMode()){flyAway(card,1,()=>{fillPanes();sizeWrap();updateStats();});}
+else render();
+return;}
 if(opt){const k=opt.dataset.opt;
 if(testRun){state.test.answers[num]=(state.test.answers[num]===k?null:k);renderTest();return;}
 const en=entry(num)||{};en.chosen=k;
@@ -641,7 +650,7 @@ qs('shuf').addEventListener('change',()=>{state.shuf=qs('shuf').checked;if(state
 qs('badredo').addEventListener('click',()=>{state.redo=!state.redo;
 if(state.redo)state.redoTs=Date.now();save();render();});
 qs('okredo').addEventListener('click',()=>{let n=0;
-DATA.forEach(r=>{const e=entry(r.num);if(e&&e.check==='ok'){
+DATA.forEach(r=>{const e=entry(r.num);if(e&&e.check==='ok'&&e.fam!==true){
 e.check='';e.chosen=undefined;e.revealed=false;e.collapse=false;e.lib=false;e.rdAt=undefined;n++;}});
 if(!n)return;save();render();goPane(1);});
 qs('starttest').addEventListener('click',startTest);
