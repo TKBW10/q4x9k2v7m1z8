@@ -19,6 +19,7 @@ h1{margin:0 0 6px;font-size:18px;font-weight:600}
 h1 span{color:var(--blue)}
 .progresswrap{height:6px;background:#222c3d;border-radius:4px;overflow:hidden;margin:8px 0 6px}
 .pbar{height:100%;width:0;background:linear-gradient(90deg,#4c8dff,#2ecc71);transition:width .25s}
+.pbar.badp{background:linear-gradient(90deg,#ff5c5c,#e08a8a)}
 .stats{color:var(--mut);font-size:13px}
 .bar{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;align-items:center}
 .bar .kwbtn{display:none}
@@ -50,7 +51,7 @@ padding:0;background:transparent;border:1px solid var(--line);border-radius:7px;
 .ibtn:hover:not(:disabled){border-color:var(--blue);color:var(--fg)}
 .ibtn.on{color:var(--blue);border-color:rgba(76,141,255,.55)}
 .ibtn[data-lib].on{color:var(--green);border-color:rgba(46,204,113,.5)}
-.ok{border:1px solid var(--line);color:var(--mut);border-radius:6px;padding:1px 8px;font-size:12px}
+.ok{border:1px solid rgba(46,204,113,.42);color:#8fd9a8;border-radius:6px;padding:1px 8px;font-size:12px}
 .bad{border:1px solid rgba(255,92,92,.42);color:#e39b9b;border-radius:6px;padding:1px 8px;font-size:12px}
 .sel{background:rgba(76,141,255,.16);color:#9fc0ff;border-radius:6px;padding:2px 8px}
 .q{white-space:pre-wrap;word-break:break-word;font-size:15px}
@@ -325,8 +326,11 @@ const answered=DATA.filter(r=>{const e=entry(r.num);return !!(e&&(e.chosen!==und
 const graded=DATA.filter(r=>r.answer&&entry(r.num)&&(entry(r.num).chosen!==undefined||entry(r.num).check)).length;
 const correct=DATA.filter(r=>r.answer&&entry(r.num)&&entry(r.num).check==='ok').length;
 const acc=graded?Math.round(correct/graded*100):0;
+const err=graded?Math.round((graded-correct)/graded*100):0;
 const lib=DATA.filter(r=>inLib(r.num)).length;
-barEl.style.width=(answered/total*100)+'%';
+const onOk=paneMode()&&pageIdx===0,onBad=paneMode()&&pageIdx===2;
+barEl.style.width=onOk?acc+'%':(onBad?err+'%':(answered/total*100)+'%');
+barEl.classList.toggle('badp',onBad);
 if(state.test&&state.test.phase==='run'){
 statsEl.textContent='模拟测试中：第 '+(state.test.i+1)+' / '+state.test.ids.length+
 ' 题　·　本卷已作答 '+Object.keys(state.test.answers).filter(n=>state.test.answers[n]!=null).length+' 题';}
@@ -334,7 +338,7 @@ else if(paneMode()){const L=paneLists();
 if(pageIdx===0)statsEl.textContent='答对的题　·　'+L.ok.length+' 题　·　已答 '+graded+
 ' 题　·　正确率 '+acc+'%';
 else if(pageIdx===2)statsEl.textContent='做错的题　·　'+L.bad.length+' 题　·　已答 '+graded+
-' 题'+(redoActive()?'　·　重做模式':'');
+' 题　·　错误率 '+err+'%'+(redoActive()?'　·　重做模式':'');
 else statsEl.textContent='未做的题　·　'+L.todo.length+' 题　·　共 '+total+
 ' 题'+(shown!=null?'　·　显示 '+shown+' 题':'');}
 else{statsEl.textContent='共 '+total+' 题　·　已答 '+answered+' 题　·　正确率 '+acc+
@@ -350,7 +354,7 @@ return '';}
 if(redoFresh(r.num))return '';
 const e=entry(r.num);if(!e)return '';
 if(!e.check)return e.chosen!==undefined?'<span class="sel">已选 '+'ABCD'[ord.indexOf(e.chosen)]+'</span>':'';
-return e.check==='ok'?'':'<span class="bad">✗ 错题</span>';}
+return e.check==='ok'?'<span class="ok">✓ 答对</span>':'<span class="bad">✗ 错题</span>';}
 
 function cardInner(r,testMode,paneIdx){
 let e=entry(r.num)||{};if(redoFresh(r.num))e={};const keys=hasOpts(r);const ord=order(r);
