@@ -386,6 +386,8 @@ const starIco='<svg viewBox="0 0 24 24" fill="'+(inLib(r.num)?'currentColor':'no
 let ico='<button class="ibtn'+(showAns?' on':'')+(revealNum===r.num?' pending':'')+'" data-rev="1" title="显示 / 隐藏答案" aria-label="显示或隐藏答案">'+eyeIco+'</button>';
 if(!testMode||gradedTest()){const copyIco='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M6 15H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v1"/></svg>';
 ico+='<button class="ibtn" data-copy="1" title="复制题目 + 讲题提示词" aria-label="复制题目与提示词">'+copyIco+'</button>';}
+if(!testMode&&!keys.length){const chkIco='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>';
+ico+='<button class="ibtn'+(e.check==='ok'?' on':'')+'" data-ok="1" title="'+(e.check==='ok'?'取消「做对」标记，移回未做的题':'标记为做对，移入答对的题')+'" aria-label="标记为做对">'+chkIco+'</button>';}
 if(!testMode){ico+='<button class="ibtn'+(inLib(r.num)?' on':'')+'" data-lib="1" title="'+(inLib(r.num)?'移出错题本':'加入错题本')+'" aria-label="加入或移出错题本">'+starIco+'</button>';}
 if(!testMode&&paneIdx===0){const famIco='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8.4 12.6l2.5 2.5 4.7-5.2"/></svg>';
 ico+='<button class="ibtn" data-fam="1" title="已掌握，不再出现在三页中" aria-label="标记为已掌握">'+famIco+'</button>';}
@@ -635,9 +637,16 @@ const card=e.target.closest('.card');if(!card)return;
 const num=+card.dataset.q,r=byNum[num];if(!r)return;
 const rev=e.target.closest('[data-rev]'),lib=e.target.closest('[data-lib]'),
 fam=e.target.closest('[data-fam]'),opt=e.target.closest('.opt');
-const cp=e.target.closest('[data-copy]');
+const cp=e.target.closest('[data-copy]'),okb=e.target.closest('[data-ok]');
 const testRun=!!(state.test&&state.test.phase==='run');
 if(cp){copyCard(r,cp);return;}
+if(okb){if(testRun)return;
+const en=entry(num)||{};
+if(en.check==='ok'){en.check='';if(en.chosen===undefined)delete en.chosen;if(en.rv)delete en.rv;}
+else{cancelReveal(num);en.check='ok';en.revealed=true;en.lib=false;if(en.rv)delete en.rv;}
+state.ans[num]=en;save();
+if(paneMode())settle(num,r,card,en);else render();
+return;}
 if(rev){if(!testRun&&paneMode()){
 if(revealTimer&&revealNum===num){undoReveal(num);return;}
 const e0=entry(num)||{};
