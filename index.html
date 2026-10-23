@@ -124,6 +124,36 @@ background:#8b9bb4;pointer-events:none;transition:transform .18s,background .18s
 .smsg{min-height:17px;margin-top:9px;font-size:12px;color:var(--mut)}
 .smsg.err{color:var(--red)}
 .smsg.okc{color:var(--green)}
+/* ===== 三页滑动 ===== */
+.paneswrap{position:relative;overflow:hidden;touch-action:pan-y;transition:height .3s ease}
+.panes{display:flex;align-items:flex-start;will-change:transform}
+.pane{flex:0 0 100%;min-width:100%;box-sizing:border-box}
+.plist{position:relative}
+.panehead{display:flex;align-items:center;gap:8px;margin:0 0 10px;padding:0 2px;
+font-size:13px;color:var(--mut)}
+.panehead .pmark{width:8px;height:8px;border-radius:50%;background:var(--mut);flex:none}
+.panehead .pt{font-weight:600}
+.panehead b{font-size:15px;color:var(--fg)}
+.pane.ok .pmark{background:var(--green)}
+.pane.ok .panehead b{color:var(--green)}
+.pane.bad .pmark{background:var(--red)}
+.pane.bad .panehead b{color:var(--red)}
+.seg{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;flex:none}
+.segb{border:0;border-radius:0;background:var(--card);color:var(--mut);
+min-height:32px;padding:5px 12px;font-size:13px}
+.segb+.segb{border-left:1px solid var(--line)}
+.segb.on{background:rgba(76,141,255,.18);color:#9fc0ff}
+.arrowbtn{position:fixed;top:50%;transform:translateY(-50%);z-index:6;display:none;
+width:44px;height:76px;padding:0;border-radius:12px;font-size:22px;line-height:1;
+background:rgba(26,33,48,.92);border:1px solid var(--line);color:var(--fg);cursor:pointer}
+.arrowbtn.show{display:block}
+.arrowbtn.l{left:calc(50% - 516px)}
+.arrowbtn.r{right:calc(50% - 516px)}
+.arrowbtn:disabled{opacity:.22}
+.ibtn.pending{border-color:var(--blue);color:var(--blue);position:relative;overflow:hidden}
+.ibtn.pending::after{content:'';position:absolute;left:0;bottom:0;height:2px;width:100%;
+background:var(--blue);transform-origin:left;animation:revealbar 3s linear forwards}
+@keyframes revealbar{from{transform:scaleX(0)}to{transform:scaleX(1)}}
 @media(max-width:720px){
 header{padding:8px 12px;position:static}
 .htop{gap:8px;align-items:center}
@@ -138,6 +168,10 @@ h1 span{display:none}
 .bar.searching #kw{display:block;flex:1 1 100%;order:4;min-width:0;height:32px;padding:4px 8px;font-size:12px}
 .bar .kwbtn{display:block;order:3;flex:0 0 auto;min-height:32px;padding:4px 8px;font-size:12px}
 .bar.searching .kwbtn{background:var(--card);border:1px solid var(--blue);color:var(--blue)}
+.segb{min-height:32px;padding:4px 10px;font-size:12px}
+.arrowbtn{display:none!important}
+.panehead{font-size:12px;margin-bottom:8px}
+.panehead b{font-size:14px}
 .bar #starttest{flex:0 0 auto;min-height:32px;padding:4px 10px;font-size:12px}
 main{padding:10px}
 .testbar{gap:6px;margin-top:6px;padding-top:6px;font-size:12px}
@@ -163,9 +197,7 @@ main{padding:10px}
 <div class="progresswrap"><div class="pbar" id="pbar"></div></div>
 <div class="stats" id="stats"></div>
 <div class="bar">
-<select id="mode"><option value="all">按题号顺序</option>
-<option value="shuffle">随机打乱</option>
-<option value="wrong">只看错题本</option></select>
+<div class="seg"><button class="segb" id="ordseq" data-ord="all">顺序</button><button class="segb" id="ordshuf" data-ord="shuffle">随机</button></div>
 <input id="kw" placeholder="搜索题干 / 答案关键词…"><button class="ghost kwbtn" id="kwbtn">搜索</button>
 <select id="tn"><option value="10">抽 10 题</option><option value="20">抽 20 题</option>
 <option value="30">抽 30 题</option><option value="50">抽 50 题</option></select>
@@ -173,7 +205,28 @@ main{padding:10px}
 </div>
 <div class="testbar" id="testbar"></div>
 </header>
-<main><div id="result"></div><div id="sheet"></div><div id="list"></div></main>
+<main>
+<div id="result"></div><div id="sheet"></div>
+<div class="paneswrap" id="paneswrap">
+<div class="panes" id="panes">
+<div class="pane ok" data-pane="0">
+<div class="panehead"><i class="pmark"></i><span class="pt">答对的题</span><b id="cntOk">0</b></div>
+<div class="plist" id="pOk"></div>
+</div>
+<div class="pane todo" data-pane="1">
+<div class="panehead"><i class="pmark"></i><span class="pt">未做的题</span><b id="cntTodo">0</b></div>
+<div class="plist" id="pTodo"></div>
+</div>
+<div class="pane bad" data-pane="2">
+<div class="panehead"><i class="pmark"></i><span class="pt">做错的题</span><b id="cntBad">0</b></div>
+<div class="plist" id="pBad"></div>
+</div>
+</div>
+</div>
+<div id="list"></div>
+</main>
+<button class="arrowbtn l" id="arrL" title="答对的题" aria-label="答对的题">‹</button>
+<button class="arrowbtn r" id="arrR" title="做错的题" aria-label="做错的题">›</button>
 <div class="sheetmask" id="settingsmask">
 <div class="panel">
 <div class="phead"><h2>设置</h2><button class="iconbtn" id="setclose">关闭</button></div>
@@ -212,7 +265,8 @@ resultEl=document.getElementById('result'),sheetEl=document.getElementById('shee
 let state={ans:{},mode:'all',kw:'',scroll:0,test:null,result:null,
 unit:false,uidx:0,auto:false,shuf:false,shufSeed:0,updatedAt:0,redo:false,redoTs:0};
 try{const s=JSON.parse(localStorage.getItem(STORE)||'{}');
-if(s&&typeof s==='object'){state.ans=s.ans||{};state.mode=s.mode==='noans'?'all':(s.mode||'all');
+if(s&&typeof s==='object'){state.ans=s.ans||{};
+state.mode=(s.mode==='shuffle')?'shuffle':'all';
 state.kw=s.kw||'';state.scroll=s.scroll||0;
 state.unit=!!s.unit;state.uidx=s.uidx||0;state.auto=!!s.auto;state.shuf=!!s.shuf;state.shufSeed=s.shufSeed||0;state.updatedAt=+s.updatedAt||0;
 state.redo=!!s.redo;state.redoTs=+s.redoTs||0;}}catch(e){}
@@ -224,9 +278,13 @@ function syncSw(){['unit','auto','shuf','redo'].forEach(k=>{const e=qs(k);const 
 function esc(s){return (s||'').replace(/[&<>]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]))}
 function hasOpts(r){return ['A','B','C','D'].filter(k=>r.options&&r.options[k])}
 function entry(n){return state.ans[n]||null}
+function gradedTest(){return !!(state.test&&state.test.phase==='done')}
 function inLib(n){const e=entry(n);return !!(e&&(e.lib===true||(e.lib===undefined&&e.check==='bad')))}
-function redoActive(){return state.redo&&state.mode==='wrong'&&!state.test}
-function redoFresh(n){const e=entry(n);if(!redoActive())return false;return !(e&&e.rdAt&&e.rdAt>=(state.redoTs||0))}
+function paneMode(){return !state.test&&!state.unit}
+function redoActive(){return state.redo&&paneMode()}
+function redoFresh(n){if(!redoActive())return false;const e=entry(n);
+if(!e||e.check!=='bad')return false;
+return !(e.rdAt&&e.rdAt>=(state.redoTs||0))}
 
 function seedRand(seed){let s=(seed*2654435761)>>>0;
 return function(){s^=s<<13;s>>>=0;s^=s>>>17;s^=s<<5;s>>>=0;return s/4294967296;}}
@@ -255,17 +313,15 @@ if(m&&m.index>0)return '<span class="q">'+esc(s.slice(0,m.index))+'</span><pre c
 if(/[\u3000-\u303f\u4e00-\u9fff\uff00-\uffef]/.test(s))return '<span class="q">'+esc(s).replace(/\n/g,'<br>')+'</span>';
 return '<pre class="code">'+esc(s)+'</pre>';}
 
-function setControls(d){['mode','kw','tn','starttest','clearlib','clearprog','reset','unit','auto','shuf'].forEach(id=>{const el=qs(id);if(el)el.disabled=d;});}
+function setControls(d){['kw','tn','starttest','clearlib','clearprog','reset','unit','auto','shuf','redo','ordseq','ordshuf'].forEach(id=>{const el=qs(id);if(el)el.disabled=d;});}
 function pool(){let a=DATA.slice();
 const kw=(qs('kw').value||'').trim().toLowerCase();
 if(kw)a=a.filter(r=>(r.stem+r.answer).toLowerCase().includes(kw));
-const m=qs('mode').value;
-if(m==='wrong')a=a.filter(r=>inLib(r.num));
 return a;}
 let cache={key:null,nums:[]};
-function ordered(a){const key=qs('mode').value+'|'+(qs('kw').value||'');
+function ordered(a){const key=state.mode+'|'+(qs('kw').value||'');
 if(cache.key!==key){cache.key=key;cache.nums=a.map(r=>r.num);
-if(qs('mode').value==='shuffle')cache.nums.sort(()=>Math.random()-0.5);}
+if(state.mode==='shuffle')cache.nums.sort(()=>Math.random()-0.5);}
 else{const set=new Set(a.map(r=>r.num));
 cache.nums=cache.nums.filter(n=>set.has(n));
 a.forEach(r=>{if(cache.nums.indexOf(r.num)<0)cache.nums.push(r.num)});}
@@ -286,7 +342,10 @@ else{statsEl.textContent='共 '+total+' 题　·　已答 '+answered+' 题　·�
 '%　·　错题 '+lib+' 题'+(shown!=null?'　·　显示 '+shown+' 题':'')+(redoActive()?'　·　重做模式':'');}}
 
 function statusBadge(r,testMode){const ord=order(r);
-if(testMode){const m=state.test.answers[r.num];
+if(testMode){if(gradedTest()&&r.answer){const a2=state.test.answers[r.num];
+if(a2==null)return '<span class="bad">✗ 未作答</span>';
+return a2===r.answer?'<span class="ok">✓ 已答对</span>':'<span class="bad">✗ 错题</span>';}
+const m=state.test.answers[r.num];
 if(m&&hasOpts(r).length)return '<span class="sel">已选 '+'ABCD'[ord.indexOf(m)]+'</span>';
 return '';}
 if(redoFresh(r.num))return '';
@@ -301,7 +360,9 @@ const collapsed=!testMode&&e.collapse===true&&e.check==='ok';
 let optsHtml='';
 if(keys.length&&!collapsed){
 optsHtml='<div class="opts">'+ord.map((k,i)=>{const L='ABCD'[i];let cls='opt';
-if(testMode){if(state.test.answers[r.num]===k)cls+=' sel';}
+if(testMode){const a2=state.test.answers[r.num];
+if(gradedTest()&&r.answer){if(k===r.answer)cls+=' correct';else if(a2===k)cls+=' wrong';}
+else if(a2===k)cls+=' sel';}
 else if(e.check){if(k===r.answer)cls+=' correct';else if(e.chosen===k)cls+=' wrong';}
 else if(e.chosen===k)cls+=' sel';
 return '<div class="'+cls+'" data-opt="'+k+'"><span class="k">'+L+'</span><span>'+esc(r.options[k])+'</span></div>';
@@ -314,7 +375,7 @@ const ansInner=keys.length
 const ansHtml='<div class="ans'+(showAns?' show':'')+'">'+ansInner+'</div>';
 const eyeIco='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>';
 const starIco='<svg viewBox="0 0 24 24" fill="'+(inLib(r.num)?'currentColor':'none')+'" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><polygon points="12 2 15.1 8.6 22 9.3 16.8 14 18.2 21 12 17.3 5.8 21 7.2 14 2 9.3 8.9 8.6"/></svg>';
-let ico='<button class="ibtn'+(showAns?' on':'')+'" data-rev="1" title="显示 / 隐藏答案" aria-label="显示或隐藏答案">'+eyeIco+'</button>';
+let ico='<button class="ibtn'+(showAns?' on':'')+(revealNum===r.num?' pending':'')+'" data-rev="1" title="显示 / 隐藏答案（点击后 3 秒显示）" aria-label="显示或隐藏答案">'+eyeIco+'</button>';
 if(!testMode){ico+='<button class="ibtn'+(inLib(r.num)?' on':'')+'" data-lib="1" title="'+(inLib(r.num)?'移出错题本':'加入错题本')+'" aria-label="加入或移出错题本">'+starIco+'</button>';}
 const act='<span class="icog">'+ico+'</span>';
 return '<div class="tags"><span class="badge">'+r.num+'</span>'+statusBadge(r,testMode)+
@@ -337,13 +398,86 @@ const r=a[state.uidx];listEl.innerHTML='';
 const d=document.createElement('div');d.className='card';d.dataset.q=r.num;
 d.innerHTML=cardInner(r,false);listEl.appendChild(d);updateStats(a.length);return;}
 testbarEl.style.display='none';
-listEl.innerHTML=a.length?'':'<div class="empty">没有匹配的题目</div>';
-const frag=document.createDocumentFragment();
-a.forEach(r=>{const d=document.createElement('div');d.className='card';
-d.dataset.q=r.num;d.innerHTML=cardInner(r,false);frag.appendChild(d);});
-listEl.appendChild(frag);updateStats(a.length);
-if(_scrollTo!=null){const t=listEl.querySelector('.card[data-q="'+_scrollTo+'"]');_scrollTo=null;
+listEl.innerHTML='';
+fillPanes();updateStats(state.unit?a.length:null);
+applyPane(false);sizeWrap();
+if(_scrollTo!=null){const t=document.querySelector('.card[data-q="'+_scrollTo+'"]');_scrollTo=null;
 if(t)t.scrollIntoView({behavior:'smooth',block:'center'});}}
+
+/* ===== 三页滑动 ===== */
+let pageIdx=1,dragX=0,dragging=false,tX=0,tY=0,revealTimer=null,revealNum=null;
+function paneEls(){return [qs('pOk'),qs('pTodo'),qs('pBad')]}
+function paneW(){const w=qs('paneswrap');return w?w.clientWidth:0}
+function sizeWrap(){const w=qs('paneswrap'),p=paneEls()[pageIdx];
+if(!w||!p)return;w.style.height=p.offsetHeight+'px';}
+function applyPane(anim){const el=qs('panes');
+el.style.transition=anim===false?'none':'';
+el.style.transform='translateX('+(-pageIdx*paneW()+dragX)+'px)';}
+function goPane(i){i=Math.max(0,Math.min(2,i));dragX=0;pageIdx=i;applyPane(true);updateArrows();
+requestAnimationFrame(sizeWrap);}
+function updateArrows(){const on=window.innerWidth>=1060&&paneMode();
+const l=qs('arrL'),r=qs('arrR');
+l.classList.toggle('show',on);r.classList.toggle('show',on);
+l.disabled=pageIdx<=0;r.disabled=pageIdx>=2;}
+function paneLists(){const base=ordered(pool());const ok=[],todo=[],bad=[];
+base.forEach(r=>{const e=entry(r.num);
+if(e&&e.check==='ok')ok.push(r);
+else if(e&&e.check==='bad')bad.push(r);
+else todo.push(r);});
+return {ok:ok,todo:todo,bad:bad};}
+function setPane(i,arr,tip){const el=paneEls()[i];if(!el)return;
+if(!arr.length){el.innerHTML='<div class="empty">'+tip+'</div>';return;}
+if(state.test&&state.test.phase==='done'&&i!==1)el.innerHTML=arr.map(r=>'<div class="card" data-q="'+r.num+'">'+cardInner(r,true)+'</div>').join('');
+else el.innerHTML=arr.map(r=>'<div class="card" data-q="'+r.num+'">'+cardInner(r,false)+'</div>').join('');}
+function fillPanes(){const L=paneLists();
+qs('cntOk').textContent=L.ok.length;qs('cntTodo').textContent=L.todo.length;qs('cntBad').textContent=L.bad.length;
+const graded=state.test&&state.test.phase==='done';
+setPane(0,L.ok,graded?'本次没有答对的题':'还没有答对的题');
+setPane(1,graded?[]:L.todo,'没有匹配的题目');
+setPane(2,L.bad,graded?'本次没有答错或未作答的题':(redoActive()?'没有待重做的错题':'还没有做错的题'));}
+function clearRevealUI(){document.querySelectorAll('.ibtn.pending').forEach(b=>b.classList.remove('pending'));}
+function flyAway(card,dir,cb){const list=card.parentNode;
+const lr=list.getBoundingClientRect(),cr=card.getBoundingClientRect();
+const others=[].slice.call(list.children).filter(c=>c!==card&&c.classList.contains('card'));
+const tops=others.map(c=>c.getBoundingClientRect().top);
+card.style.position='absolute';card.style.margin='0';card.style.zIndex='5';
+card.style.left=(cr.left-lr.left)+'px';card.style.top=(cr.top-lr.top)+'px';
+card.style.width=cr.width+'px';card.style.pointerEvents='none';
+others.forEach((c,i)=>{const dy=tops[i]-c.getBoundingClientRect().top;
+if(Math.abs(dy)<1)return;c.style.transition='none';c.style.transform='translateY('+dy+'px)';});
+requestAnimationFrame(()=>{
+others.forEach(c=>{c.style.transition='transform .3s cubic-bezier(.4,0,.2,1)';c.style.transform='';});
+const W=paneW()||window.innerWidth;
+const dist=dir>0?(W-cr.left+24):-(cr.left+cr.width+24);
+card.style.transition='transform .36s cubic-bezier(.4,0,.2,1),opacity .36s';
+card.style.transform='translateX('+dist+'px)';card.style.opacity='0';});
+setTimeout(()=>{card.remove();others.forEach(c=>{c.style.transition='';c.style.transform='';});
+if(cb)cb();},360);}
+function settle(num,r,card,en){
+const target=en.check==='ok'?0:(en.check==='bad'?2:1);
+const pane=card&&card.parentNode?card.closest('.pane'):null;
+const cur=pane?+pane.dataset.pane:-1;
+if(cur===target){if(card)card.innerHTML=cardInner(r,false);fillCounts();updateStats();return;}
+if(cur>=0&&card)flyAway(card,target<cur?-1:1,afterMove);
+else afterMove();
+function afterMove(){fillPanes();sizeWrap();updateStats();}}
+function fillCounts(){const L=paneLists();
+qs('cntOk').textContent=L.ok.length;qs('cntTodo').textContent=L.todo.length;qs('cntBad').textContent=L.bad.length;}
+function doReveal(n){const r=byNum[n];if(!r)return;const en=entry(n)||{};
+en.revealed=true;
+if(redoActive())en.rdAt=Date.now();
+if(!en.check){en.check='bad';en.lib=true;}
+state.ans[n]=en;save();
+clearRevealUI();
+const card=document.querySelector('.card[data-q="'+n+'"]');
+settle(n,r,card,en);}
+function startReveal(n){const card=document.querySelector('.card[data-q="'+n+'"]');
+if(revealTimer&&revealNum===n){clearTimeout(revealTimer);revealTimer=null;revealNum=null;clearRevealUI();render();return;}
+if(revealTimer){clearTimeout(revealTimer);revealTimer=null;revealNum=null;}
+revealNum=n;
+if(card){const b=card.querySelector('[data-rev]');if(b)b.classList.add('pending');}
+revealTimer=setTimeout(()=>{revealTimer=null;const x=revealNum;revealNum=null;doReveal(x);},3000);}
+function cancelReveal(n){if(revealNum!==n)return;clearTimeout(revealTimer);revealTimer=null;revealNum=null;clearRevealUI();}
 
 function sheetHtml(){const tb=state.test;if(!tb)return '';
 const done=Object.keys(tb.answers).filter(n=>tb.answers[n]!=null).length;
@@ -357,6 +491,7 @@ if(i===tb.i&&!graded)cls+=' cur';
 return '<button class="'+cls+'" data-sheet="'+i+'">'+(i+1)+'</button>';}).join('')+'</div></div>';}
 
 function renderTest(){const tb=state.test,r=byNum[tb.ids[tb.i]];
+qs('paneswrap').style.display='none';updateArrows();
 testbarEl.style.display='flex';
 testbarEl.innerHTML='<span>模拟测试 第 '+(tb.i+1)+' / '+tb.ids.length+' 题</span>'+
 '<button class="ghost" data-nav="prev" '+(tb.i===0?'disabled':'')+'>上一题</button>'+
@@ -377,6 +512,9 @@ if(state.test&&state.test.phase==='run'){renderTest();return;}
 testbarEl.style.display='none';
 sheetEl.innerHTML=state.test?sheetHtml():'';
 resultEl.innerHTML=state.result?resultHtml(state.result):'';
+if(state.unit&&!state.test){qs('paneswrap').style.display='none';qs('list').style.display='';
+renderList();updateArrows();return;}
+qs('paneswrap').style.display='';qs('list').style.display='none';
 renderList();}
 
 function startTest(){
@@ -407,7 +545,7 @@ else{if(i<a.length-1)_scrollTo=a[i+1].num;}}
 function jumpTo(n){
 if(state.unit){const a0=ordered(pool());const i0=a0.findIndex(r=>r.num===n);if(i0>=0)state.uidx=i0;}
 render();
-const t=listEl.querySelector('.card[data-q="'+n+'"]');
+const t=document.querySelector('.card[data-q="'+n+'"]');
 if(t){t.scrollIntoView({behavior:'smooth',block:'center'});
 t.style.transition='box-shadow .4s';t.style.boxShadow='0 0 0 2px var(--blue)';
 setTimeout(()=>{t.style.boxShadow='';},1600);}}
@@ -426,30 +564,41 @@ else if(a==='u-prev'){state.uidx=Math.max(0,state.uidx-1);save();render();window
 else if(a==='u-next'){state.uidx=Math.min(A.length-1,state.uidx+1);save();render();window.scrollTo({top:0,behavior:'smooth'});}
 return;}
 const res=e.target.closest('[data-res]');
-if(res){if(res.dataset.res==='wrong'){qs('mode').value='wrong';state.mode='wrong';save();render();}
+if(res){if(res.dataset.res==='wrong'){goPane(2);render();}
 else if(res.dataset.res==='close'){state.result=null;state.test=null;setControls(false);save();render();}
 return;}
 const gt=e.target.closest('[data-goto]');
-if(gt){qs('mode').value='wrong';state.mode='wrong';save();jumpTo(+gt.dataset.goto);return;}
+if(gt){goPane(2);jumpTo(+gt.dataset.goto);return;}
 const sb=e.target.closest('[data-sheet]');
 if(sb){if(state.test&&state.test.phase==='run'){state.test.i=+sb.dataset.sheet;renderTest();}return;}
+const ordb=e.target.closest('[data-ord]');
+if(ordb){state.mode=ordb.dataset.ord;cache.key=null;updateSeg();save();render();return;}
 const card=e.target.closest('.card');if(!card)return;
 const num=+card.dataset.q,r=byNum[num];if(!r)return;
 const rev=e.target.closest('[data-rev]'),lib=e.target.closest('[data-lib]'),opt=e.target.closest('.opt');
 const testRun=!!(state.test&&state.test.phase==='run');
-if(rev){const en=entry(num)||{};en.revealed=!en.revealed;
+if(rev){if(!testRun&&paneMode()){startReveal(num);return;}
+const en=entry(num)||{};en.revealed=!en.revealed;
 if(!testRun&&en.revealed){if(redoActive())en.rdAt=Date.now();
 if(!en.check)en.check='bad';if(en.check==='bad')en.lib=true;}
 state.ans[num]=en;save();render();return;}
 if(lib){const en=entry(num)||{};
 if(inLib(num)){en.lib=false;if(en.check==='bad')en.check='';}
 else{en.lib=true;en.check='bad';}
-state.ans[num]=en;save();render();return;}
+state.ans[num]=en;save();
+if(paneMode()&&!testRun){settle(num,r,card,en);return;}
+render();return;}
 if(opt){const k=opt.dataset.opt;
 if(testRun){state.test.answers[num]=(state.test.answers[num]===k?null:k);renderTest();return;}
 const en=entry(num)||{};en.chosen=k;
 if(redoActive())en.rdAt=Date.now();
 if(r.answer){en.check=(k===r.answer?'ok':'bad');en.revealed=true;en.lib=en.check==='bad';}
+if(!r.answer){state.ans[num]=en;save();render();return;}
+if(paneMode()){
+cancelReveal(num);
+card.querySelectorAll('.opt').forEach(o=>{const ok2=o.dataset.opt;
+if(ok2===r.answer)o.classList.add('correct');else if(ok2===k)o.classList.add('wrong');});
+state.ans[num]=en;save();settle(num,r,card,en);return;}
 if(state.auto&&en.check==='ok'){en.collapse=true;state.ans[num]=en;autoAdvance(num);}
 else{state.ans[num]=en;}
 save();render();return;}
@@ -457,9 +606,14 @@ const en=entry(num)||{};
 if(en.collapse&&en.check==='ok'){en.collapse=false;state.ans[num]=en;save();render();}
 });
 
-qs('mode').value=state.mode;qs('kw').value=state.kw;
-qs('unit').checked=state.unit;qs('auto').checked=state.auto;qs('shuf').checked=state.shuf;qs('redo').checked=state.redo;syncSw();
-qs('mode').addEventListener('change',()=>{state.mode=qs('mode').value;save();render();});
+function updateSeg(){const a=qs('ordseq'),b=qs('ordshuf');if(!a)return;
+a.classList.toggle('on',state.mode!=='shuffle');b.classList.toggle('on',state.mode==='shuffle');}
+
+qs('kw').value=state.kw;
+qs('unit').checked=state.unit;qs('auto').checked=state.auto;qs('shuf').checked=state.shuf;qs('redo').checked=state.redo;syncSw();updateSeg();
+
+qs('ordseq').addEventListener('click',()=>{state.mode='all';cache.key=null;updateSeg();save();render();});
+qs('ordshuf').addEventListener('click',()=>{state.mode='shuffle';cache.key=null;updateSeg();save();render();});
 qs('kw').addEventListener('input',()=>{state.kw=qs('kw').value;save();render();});
 qs('unit').addEventListener('change',()=>{state.unit=qs('unit').checked;syncSw();save();window.scrollTo(0,0);render();});
 qs('auto').addEventListener('change',()=>{state.auto=qs('auto').checked;syncSw();save();});
@@ -471,8 +625,31 @@ qs('clearlib').addEventListener('click',()=>{if(!confirm('确定清空错题本�
 DATA.forEach(r=>{if(inLib(r.num)){state.ans[r.num].check='ok';state.ans[r.num].lib=false;}});save();render();});
 qs('clearprog').addEventListener('click',()=>{if(!confirm('确定清除所有作答进度？'))return;
 state.ans={};save();render();});
-qs('reset').addEventListener('click',()=>{qs('kw').value='';qs('mode').value='all';
-state.kw='';state.mode='all';endTest();});
+qs('reset').addEventListener('click',()=>{qs('kw').value='';state.kw='';state.mode='all';cache.key=null;
+updateSeg();endTest();});
+/* ===== 翻页：PC 箭头 + 手机滑动 ===== */
+qs('arrL').addEventListener('click',()=>goPane(pageIdx-1));
+qs('arrR').addEventListener('click',()=>goPane(pageIdx+1));
+const _wrap=qs('paneswrap');
+_wrap.addEventListener('touchstart',e=>{if(e.touches.length!==1)return;
+tX=e.touches[0].clientX;tY=e.touches[0].clientY;dragging=false;dragX=0;},{passive:true});
+_wrap.addEventListener('touchmove',e=>{if(e.touches.length!==1)return;
+const dx=e.touches[0].clientX-tX,dy=e.touches[0].clientY-tY;
+if(!dragging){if(Math.abs(dx)<14)return;
+if(Math.abs(dx)<Math.abs(dy)*1.6)return;
+dragging=true;}
+dragX=dx;
+if((pageIdx===0&&dragX>0)||(pageIdx===2&&dragX<0))dragX*=0.3;
+applyPane(false);},{passive:true});
+_wrap.addEventListener('touchend',()=>{if(!dragging){dragX=0;applyPane(true);return;}
+const w=paneW(),th=Math.max(70,w*0.22);let i=pageIdx;
+if(dragX<-th)i=pageIdx+1;else if(dragX>th)i=pageIdx-1;
+dragging=false;goPane(i);});
+_wrap.addEventListener('touchcancel',()=>{dragging=false;dragX=0;applyPane(true);});
+window.addEventListener('resize',()=>{applyPane(false);updateArrows();sizeWrap();});
+window.addEventListener('load',()=>{applyPane(false);updateArrows();sizeWrap();});
+if(window.matchMedia){const mq=window.matchMedia('(min-width:1060px)');
+if(mq.addEventListener)mq.addEventListener('change',updateArrows);}
 /* ===== GitHub 云同步 ===== */
 const SYNC_CFG='cquiz400sel:sync_cfg';
 const SYNC_REPO='TKBW10/v6k1m8z3q9x4',SYNC_BRANCH='main',SYNC_PATH='state/progress.json';
