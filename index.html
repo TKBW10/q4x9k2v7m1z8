@@ -275,11 +275,12 @@ state.mode=(s.mode==='shuffle')?'shuffle':'all';
 state.kw=s.kw||'';state.scroll=s.scroll||0;
 state.unit=!!s.unit;state.uidx=s.uidx||0;state.auto=!!s.auto;state.shuf=!!s.shuf;state.shufSeed=s.shufSeed||0;state.updatedAt=+s.updatedAt||0;
 state.redo=!!s.redo;state.redoTs=+s.redoTs||0;
-state.psc=(Array.isArray(s.psc)&&s.psc.length===3)?s.psc.map(x=>+x||0):[0,0,0];}}catch(e){}
+state.psc=(Array.isArray(s.psc)&&s.psc.length===3)?s.psc.map(x=>+x||0):[0,0,0];
+state.pg=(+s.pg>=0&&+s.pg<=2)?+s.pg:1;}}catch(e){}
 let paneScroll=(Array.isArray(state.psc)&&state.psc.length===3)?state.psc.slice():[0,0,0];
 function save(){state.updatedAt=Date.now();paneScroll[pageIdx]=window.scrollY;
 localStorage.setItem(STORE,JSON.stringify({ans:state.ans,mode:state.mode,kw:state.kw,
-scroll:window.scrollY,psc:paneScroll,unit:state.unit,uidx:state.uidx,auto:state.auto,shuf:state.shuf,shufSeed:state.shufSeed,updatedAt:state.updatedAt,
+scroll:window.scrollY,psc:paneScroll,pg:pageIdx,unit:state.unit,uidx:state.uidx,auto:state.auto,shuf:state.shuf,shufSeed:state.shufSeed,updatedAt:state.updatedAt,
 redo:state.redo,redoTs:state.redoTs}));noteChange();}
 function qs(id){return document.getElementById(id)}
 function syncSw(){['unit','auto','shuf'].forEach(k=>{const e=qs(k);const r=e&&e.closest('.setrow');if(r)r.classList.toggle('on',e.checked);});}
@@ -455,7 +456,7 @@ if(_scrollTo!=null){const t=document.querySelector('.card[data-q="'+_scrollTo+'"
 if(t)t.scrollIntoView({behavior:'smooth',block:'center'});}}
 
 /* ===== 三页滑动 ===== */
-let pageIdx=1,dragX=0,dragging=false,tX=0,tY=0,revealTimer=null,revealNum=null;
+let pageIdx=(+state.pg>=0&&+state.pg<=2)?+state.pg:1,dragX=0,dragging=false,tX=0,tY=0,revealTimer=null,revealNum=null;
 function paneEls(){return [qs('pOk'),qs('pTodo'),qs('pBad')]}
 function paneW(){const w=qs('paneswrap');return w?w.clientWidth:0}
 function sizeWrap(){const w=qs('paneswrap'),p=paneEls()[pageIdx];
@@ -469,7 +470,7 @@ if(i!==pageIdx)paneScroll[pageIdx]=window.scrollY;
 dragX=0;pageIdx=i;applyPane(true);
 updateArrows();updatePageTools();updateStats();
 const w=qs('paneswrap');if(w)w.style.transition='none';
-requestAnimationFrame(()=>{sizeWrap();window.scrollTo(0,paneScroll[i]||0);
+requestAnimationFrame(()=>{sizeWrap();window.scrollTo(0,paneScroll[i]||0);save();
 requestAnimationFrame(()=>{if(w)w.style.transition='';});});}
 /* 工具栏按钮随当前页切换：对页=移回未做，未做页=顺序/随机，错页=重做 */
 function updatePageTools(){const okb=qs('okredo'),badb=qs('badredo'),seg=qs('segord');
