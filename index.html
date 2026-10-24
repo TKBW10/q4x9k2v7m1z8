@@ -375,13 +375,14 @@ function cardInner(r,testMode,paneIdx){
 let e=entry(r.num)||{};if(redoFresh(r.num))e={};const keys=hasOpts(r);const ord=order(r);
 const dmap={};ord.forEach((k,i)=>dmap[k]='ABCD'[i]);
 const collapsed=!testMode&&e.collapse===true&&e.check==='ok';
+const hideAns=!testMode&&e.hide===true;
 let optsHtml='';
 if(keys.length&&!collapsed){
 optsHtml='<div class="opts">'+ord.map((k,i)=>{const L='ABCD'[i];let cls='opt';
 if(testMode){const a2=state.test.answers[r.num];
 if(gradedTest()&&r.answer){if(k===r.answer)cls+=' correct';else if(a2===k)cls+=' wrong';}
 else if(a2===k)cls+=' sel';}
-else if(e.check){if(k===r.answer)cls+=' correct';else if(e.chosen===k)cls+=' wrong';}
+else if(e.check&&!hideAns){if(k===r.answer)cls+=' correct';else if(e.chosen===k)cls+=' wrong';}
 else if(e.chosen===k)cls+=' sel';
 return '<div class="'+cls+'" data-opt="'+k+'"><span class="k">'+L+'</span><span>'+esc(r.options[k])+'</span></div>';
 }).join('')+'</div>';}
