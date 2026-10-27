@@ -268,6 +268,7 @@ const listEl=document.getElementById('list'),statsEl=document.getElementById('st
 barEl=document.getElementById('pbar'),testbarEl=document.getElementById('testbar'),
 resultEl=document.getElementById('result'),sheetEl=document.getElementById('sheet');
 let state={ans:{},mode:'all',kw:'',scroll:0,test:null,result:null,
+stat:{ok:0,bad:0},
 unit:false,uidx:0,auto:false,shuf:false,shufSeed:0,updatedAt:0,redo:false,redoTs:0};
 try{const s=JSON.parse(localStorage.getItem(STORE)||'{}');
 if(s&&typeof s==='object'){state.ans=s.ans||{};
@@ -276,12 +277,13 @@ state.kw=s.kw||'';state.scroll=s.scroll||0;
 state.unit=!!s.unit;state.uidx=s.uidx||0;state.auto=!!s.auto;state.shuf=!!s.shuf;state.shufSeed=s.shufSeed||0;state.updatedAt=+s.updatedAt||0;
 state.redo=!!s.redo;state.redoTs=+s.redoTs||0;
 state.psc=(Array.isArray(s.psc)&&s.psc.length===3)?s.psc.map(x=>+x||0):[0,0,0];
+state.stat=(s.stat&&typeof s.stat==='object')?{ok:+s.stat.ok||0,bad:+s.stat.bad||0}:{ok:0,bad:0};
 state.pg=(+s.pg>=0&&+s.pg<=2)?+s.pg:1;}}catch(e){}
 let paneScroll=(Array.isArray(state.psc)&&state.psc.length===3)?state.psc.slice():[0,0,0];
 function save(){state.updatedAt=Date.now();paneScroll[pageIdx]=window.scrollY;
 localStorage.setItem(STORE,JSON.stringify({ans:state.ans,mode:state.mode,kw:state.kw,
 scroll:window.scrollY,psc:paneScroll,pg:pageIdx,unit:state.unit,uidx:state.uidx,auto:state.auto,shuf:state.shuf,shufSeed:state.shufSeed,updatedAt:state.updatedAt,
-redo:state.redo,redoTs:state.redoTs}));noteChange();}
+redo:state.redo,redoTs:state.redoTs,stat:state.stat}));noteChange();}
 function qs(id){return document.getElementById(id)}
 function syncSw(){['unit','auto','shuf'].forEach(k=>{const e=qs(k);const r=e&&e.closest('.setrow');if(r)r.classList.toggle('on',e.checked);});}
 function esc(s){return (s||'').replace(/[&<>]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]))}
@@ -290,6 +292,11 @@ function entry(n){return state.ans[n]||null}
 function gradedTest(){return !!(state.test&&state.test.phase==='done')}
 function inLib(n){const e=entry(n);return !!(e&&(e.lib===true||(e.lib===undefined&&e.check==='bad')))}
 function paneMode(){return !state.test&&!state.unit}
+/* 题是否处于「未做」状态：从未判定，或重做模式下被当作新题（在错页重做） */
+function freshQ(n){const e=entry(n);return !(e&&e.check)||redoFresh(n)}
+/* 只在题处于「未做」状态时作答才累加统计（对页/错页上对已判定题的修改不计入） */
+function bumpStat(isOk,wasFresh){if(!wasFresh)return;
+state.stat[isOk?'ok':'bad']++;}
 function redoActive(){return state.redo&&paneMode()}
 function redoFresh(n){if(!redoActive())return false;const e=entry(n);
 if(!e||e.check!=='bad')return false;
@@ -339,10 +346,10 @@ return cache.nums.map(n=>byNum[n]);}
 function updateStats(shown){
 const total=DATA.length;
 const answered=DATA.filter(r=>{const e=entry(r.num);return !!(e&&(e.chosen!==undefined||e.check));}).length;
-const graded=DATA.filter(r=>r.answer&&entry(r.num)&&(entry(r.num).chosen!==undefined||entry(r.num).check)).length;
-const correct=DATA.filter(r=>r.answer&&entry(r.num)&&entry(r.num).check==='ok').length;
-const acc=graded?Math.round(correct/graded*100):0;
-const err=graded?Math.round((graded-correct)/graded*100):0;
+/* 正确率/错误率 = 在「未做」状态下作答的累计次数（中页作答、错页重做、单题模式都算） */
+const tally=state.stat.ok+state.stat.bad;
+const acc=tally?Math.round(state.stat.ok/tally*100):0;
+const err=tally?Math.round(state.stat.bad/tally*100):0;
 const lib=DATA.filter(r=>inLib(r.num)).length;
 const onOk=paneMode()&&pageIdx===0,onBad=paneMode()&&pageIdx===2;
 barEl.style.width=onOk?acc+'%':(onBad?err+'%':(answered/total*100)+'%');
@@ -351,13 +358,13 @@ if(state.test&&state.test.phase==='run'){
 statsEl.textContent='模拟测试中：第 '+(state.test.i+1)+' / '+state.test.ids.length+
 ' 题　·　本卷已作答 '+Object.keys(state.test.answers).filter(n=>state.test.answers[n]!=null).length+' 题';}
 else if(paneMode()){const L=paneLists();
-if(pageIdx===0)statsEl.textContent='答对的题　·　'+L.ok.length+' 题　·　已答 '+graded+
+if(pageIdx===0)statsEl.textContent='答对的题　·　'+L.ok.length+' 题　·　累计作答 '+tally+
 ' 题　·　正确率 '+acc+'%';
-else if(pageIdx===2)statsEl.textContent='做错的题　·　'+L.bad.length+' 题　·　已答 '+graded+
+else if(pageIdx===2)statsEl.textContent='做错的题　·　'+L.bad.length+' 题　·　累计作答 '+tally+
 ' 题　·　错误率 '+err+'%'+(redoActive()?'　·　重做模式':'');
 else statsEl.textContent='未做的题　·　'+L.todo.length+' 题　·　共 '+total+
 ' 题'+(shown!=null?'　·　显示 '+shown+' 题':'');}
-else{statsEl.textContent='共 '+total+' 题　·　已答 '+answered+' 题　·　正确率 '+acc+
+else{statsEl.textContent='共 '+total+' 题　·　累计作答 '+tally+' 题　·　正确率 '+acc+
 '%　·　错题 '+lib+' 题'+(shown!=null?'　·　显示 '+shown+' 题':'');}}
 
 function statusBadge(r,testMode){const ord=order(r);
@@ -535,10 +542,11 @@ function stopReveal(){clearTimeout(revealTimer);revealTimer=null;revealNum=null;
 /* 立即显示答案，3 秒后自动移入「做错的题」 */
 function revealNow(n){const r=byNum[n];if(!r)return;
 const en=entry(n)||{};
+const wasFresh=freshQ(n);
 en.revealed=true;en.hide=false;
 if(redoActive())en.rdAt=Date.now();
 if(!en.check){en.check='bad';en.lib=true;en.rv=1;}
-state.ans[n]=en;save();
+state.ans[n]=en;bumpStat(false,wasFresh);save();
 stopReveal();revealNum=n;
 const card=document.querySelector('.card[data-q="'+n+'"]');
 if(card){card.innerHTML=cardInner(r,false);card.classList.add('moving');
@@ -552,7 +560,8 @@ settle(n,r,c2,entry(n));},3000);}
 function cancelReveal(n){if(revealNum!==n)return;stopReveal();}
 /* 点眼睛取消：收回刚揭晓的答案与错题标记 */
 function undoReveal(n){stopReveal();const en=entry(n);if(!en)return;
-if(en.rv){en.revealed=false;en.check='';en.lib=false;if(en.chosen===undefined)delete en.chosen;delete en.rv;}
+if(en.rv){en.revealed=false;en.check='';en.lib=false;if(en.chosen===undefined)delete en.chosen;delete en.rv;
+if(state.stat.bad>0)state.stat.bad--;}
 else en.revealed=false;
 save();render();}
 
@@ -658,26 +667,28 @@ const cp=e.target.closest('[data-copy]'),okb=e.target.closest('[data-ok]');
 const testRun=!!(state.test&&state.test.phase==='run');
 if(cp){copyCard(r,cp);return;}
 if(okb){if(testRun)return;
-const en=entry(num)||{};
+const en=entry(num)||{};const wasFresh=freshQ(num);
 if(en.check==='ok'){en.check='';if(en.chosen===undefined)delete en.chosen;if(en.rv)delete en.rv;}
-else{cancelReveal(num);en.check='ok';en.revealed=true;en.lib=false;en.hide=false;if(en.rv)delete en.rv;}
+else{cancelReveal(num);en.check='ok';en.revealed=true;en.lib=false;en.hide=false;if(en.rv)delete en.rv;
+bumpStat(true,wasFresh);}
 state.ans[num]=en;save();
 if(paneMode())settle(num,r,card,en);else render();
 return;}
 if(rev){if(!testRun&&paneMode()){
 if(revealTimer&&revealNum===num){undoReveal(num);return;}
 const e0=entry(num)||{};
-if(!e0.check&&!e0.revealed&&!e0.hide){revealNow(num);return;}
+if(redoFresh(num)||(!e0.check&&!e0.revealed&&!e0.hide)){revealNow(num);return;}
 const showing=!e0.hide;e0.hide=showing;if(!showing)e0.revealed=true;
 state.ans[num]=e0;save();render();return;}
-const en=entry(num)||{};const showing=!en.hide&&(!!en.check||!!en.revealed);
+const en=entry(num)||{};const wasFresh=freshQ(num);
+const showing=!en.hide&&(!!en.check||!!en.revealed);
 en.hide=showing;if(!showing)en.revealed=true;
 if(!testRun&&!en.hide){if(redoActive())en.rdAt=Date.now();
-if(!en.check)en.check='bad';if(en.check==='bad')en.lib=true;}
+if(!en.check){en.check='bad';bumpStat(false,wasFresh);}if(en.check==='bad')en.lib=true;}
 state.ans[num]=en;save();render();return;}
-if(lib){const en=entry(num)||{};
+if(lib){const en=entry(num)||{};const wasFresh=freshQ(num);
 if(inLib(num)){en.lib=false;if(en.check==='bad')en.check='';}
-else{en.lib=true;en.check='bad';}
+else{en.lib=true;en.check='bad';bumpStat(false,wasFresh);}
 if(en.rv)delete en.rv;
 state.ans[num]=en;save();
 if(paneMode()&&!testRun){cancelReveal(num);settle(num,r,card,en);return;}
@@ -689,9 +700,10 @@ else render();
 return;}
 if(opt){const k=opt.dataset.opt;
 if(testRun){state.test.answers[num]=(state.test.answers[num]===k?null:k);renderTest();return;}
-const en=entry(num)||{};en.chosen=k;
+const en=entry(num)||{};const wasFresh=freshQ(num);en.chosen=k;
 if(redoActive())en.rdAt=Date.now();
-if(r.answer){en.check=(k===r.answer?'ok':'bad');en.revealed=true;en.lib=en.check==='bad';}
+if(r.answer){en.check=(k===r.answer?'ok':'bad');en.revealed=true;en.lib=en.check==='bad';
+bumpStat(en.check==='ok',wasFresh);}
 if(!r.answer){state.ans[num]=en;save();render();return;}
 if(paneMode()){
 cancelReveal(num);const _e3=entry(num);if(_e3&&_e3.rv){delete _e3.rv;state.ans[num]=_e3;}
@@ -727,7 +739,7 @@ qs('starttest').addEventListener('click',startTest);
 qs('clearlib').addEventListener('click',()=>{if(!confirm('确定清空错题本？'))return;
 DATA.forEach(r=>{if(inLib(r.num)){state.ans[r.num].check='ok';state.ans[r.num].lib=false;}});save();render();});
 qs('clearprog').addEventListener('click',()=>{if(!confirm('确定清除所有作答进度？'))return;
-state.ans={};save();render();});
+state.ans={};state.stat={ok:0,bad:0};save();render();});
 qs('reset').addEventListener('click',()=>{qs('kw').value='';state.kw='';state.mode='all';cache.key=null;
 updateSeg();endTest();});
 /* ===== 翻页：PC 箭头 + 手机滑动 ===== */
@@ -766,7 +778,7 @@ function b64enc(s){const b=new TextEncoder().encode(s);let x='';for(let i=0;i<b.
 function b64dec(s){const bin=atob((s||'').replace(/\s/g,''));const b=new Uint8Array(bin.length);
 for(let i=0;i<bin.length;i++)b[i]=bin.charCodeAt(i);return new TextDecoder().decode(b)}
 function snap(){return {ans:state.ans,mode:state.mode,kw:state.kw,scroll:window.scrollY,
-unit:state.unit,uidx:state.uidx,auto:state.auto,shuf:state.shuf,shufSeed:state.shufSeed,updatedAt:state.updatedAt||0}}
+unit:state.unit,uidx:state.uidx,auto:state.auto,shuf:state.shuf,shufSeed:state.shufSeed,updatedAt:state.updatedAt||0,stat:state.stat}}
 function payload(){return {app:'c-language-400-quiz',v:2,updatedAt:state.updatedAt||0,state:snap()}}
 async function gh(method,cfg,body){
 const u='https://api.github.com/repos/'+cfg.repo+'/contents/'+cfg.path+(method==='GET'?'?ref='+encodeURIComponent(cfg.branch):'');
