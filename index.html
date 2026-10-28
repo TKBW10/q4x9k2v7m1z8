@@ -85,16 +85,10 @@ white-space:pre-wrap;display:none}
 /* ===== 追加功能样式 ===== */
 .stem{overflow-x:auto}
 pre.code{font-family:ui-monospace,Consolas,"Cascadia Mono","Courier New",monospace;font-size:13px;
-background:linear-gradient(180deg,#0d1526,#0a0f1c);border:1px solid rgba(76,141,255,.16);
-border-left:3px solid var(--blue);border-radius:10px;padding:12px 14px;margin:10px 0;
-white-space:pre;overflow-x:auto;line-height:1.65;tab-size:2;
-box-shadow:inset 0 1px 0 rgba(255,255,255,.04)}
+background:#0b101a;border:1px solid var(--line);border-radius:8px;padding:9px 11px;margin:8px 0;
+white-space:pre;overflow-x:auto;line-height:1.62;tab-size:4}
 .ans pre.code{margin:8px 0}
-pre.code .k{color:#6ea8fe;font-weight:600}
-pre.code .s{color:#7ee787}
-pre.code .n{color:#ffb454}
-pre.code .c{color:#7a88a6;font-style:italic}
-pre.code .p{color:#c792ea}
+pre.code .ln{display:inline-block;width:2.4em;padding-right:8px;margin-right:10px;color:#55617a;text-align:right;user-select:none;border-right:1px solid rgba(255,255,255,.07)}
 .ansL{font-weight:700}
 .card.sheet{margin-bottom:12px}
 .shead{font-size:13px;color:var(--mut);margin-bottom:9px}
@@ -294,16 +288,33 @@ redo:state.redo,redoTs:state.redoTs,stat:state.stat}));noteChange();}
 function qs(id){return document.getElementById(id)}
 function syncSw(){['unit','auto','shuf'].forEach(k=>{const e=qs(k);const r=e&&e.closest('.setrow');if(r)r.classList.toggle('on',e.checked);});}
 function esc(s){return (s||'').replace(/[&<>]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]))}
-const HL_RE=/(\/\/[^\n]*|\/\*[\s\S]*?\*\/|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|#[ \t]*[a-zA-Z]+|\b(?:auto|break|case|char|const|continue|default|do|double|else|enum|extern|float|for|goto|if|int|long|register|return|short|signed|sizeof|static|struct|switch|typedef|union|unsigned|void|volatile|while)\b|\b(?:0[xX][0-9a-fA-F]+|\d+(?:\.\d+)?)[fFlLuU]*\b)/g;
-function hl(s){s=s||'';let out='',i=0,m;HL_RE.lastIndex=0;
-while((m=HL_RE.exec(s))){out+=esc(s.slice(i,m.index));const t=m[0];
-let c='k';
-if(t.startsWith('//')||t.startsWith('/*'))c='c';
-else if(t[0]==='"'||t[0]==="'")c='s';
-else if(t[0]==='#')c='p';
-else if(/^\d/.test(t))c='n';
-out+='<span class="'+c+'">'+esc(t)+'</span>';i=m.index+t.length;}
-return out+esc(s.slice(i));}
+function fmtC(src){src=(src||'').replace(/\r/g,'').replace(/\t/g,'    ');
+let out='',ind=0,par=0,init=0,atStart=true;const bst=[];
+const pad=()=>{if(atStart){out+='    '.repeat(ind);atStart=false;}};
+const nl=()=>{if(out&&out[out.length-1]!=='\n')out+='\n';atStart=true;};
+const prev=()=>{for(let k=out.length-1;k>=0;k--){const c=out[k];if(c!=='\n'&&c!==' ')return c;}return '';};
+const put=c=>{pad();out+=c;};
+let i=0;
+while(i<src.length){const c=src[i],d=src[i+1];
+if(c==='\n'||c==='\r'){nl();i++;continue;}
+if(c===' '){if(!atStart&&out[out.length-1]!==' '&&out[out.length-1]!=='\n')out+=' ';i++;continue;}
+if(c==='"'||c==="'"){put(c);i++;while(i<src.length){if(src[i]==='\\'){out+=src[i];if(i+1<src.length)out+=src[i+1];i+=2;continue;}out+=src[i];if(src[i]===c){i++;break;}i++;}continue;}
+if(c==='/'&&d==='/'){while(i<src.length&&src[i]!=='\n'){out+=src[i];i++;}continue;}
+if(c==='/'&&d==='*'){out+='/*';i+=2;while(i<src.length&&!(src[i]==='*'&&src[i+1]==='/')){out+=src[i];i++;}if(i<src.length){out+='*/';i+=2;}continue;}
+if(c==='('){par++;put(c);i++;continue;}
+if(c===')'){par=Math.max(0,par-1);put(c);i++;continue;}
+if(c==='{'){const p=prev();if(init>0||p==='='){init++;put(c);i++;continue;}const w=(out.match(/[A-Za-z_][A-Za-z0-9_]*$/)||[''])[0];bst.push((w==='do'||w==='else'||!/[A-Za-z_]/.test(p))?'s':'d');nl();put('{');ind++;nl();i++;continue;}
+if(c==='}'){if(init>0){init--;put(c);i++;continue;}const kind=bst.pop()||'s';if(ind>0)ind--;nl();put('}');
+let k=i+1;while(k<src.length&&/\s/.test(src[k]))k++;
+if(src.startsWith('else',k))nl();
+else if(src[k]===';'||src[k]==='}'){}
+else if(src.startsWith('while',k))out+=' ';
+else if(/^[A-Za-z_*]/.test(src[k]||'')){if(kind==='d')out+=' ';else nl();}
+else nl();i++;continue;}
+if(c===';'&&par===0&&init===0){put(c);nl();i++;continue;}
+put(c);i++;}
+return out.split('\n').map(s=>s.replace(/\s+$/,'')).join('\n').replace(/\n+$/,'');}
+function showCode(src){const t=fmtC(src).split('\n');return '<pre class="code">'+t.map((l,k)=>'<span class="ln">'+(k+1)+'</span>'+esc(l)).join('\n')+'</pre>';}
 function hasOpts(r){return ['A','B','C','D'].filter(k=>r.options&&r.options[k])}
 function entry(n){return state.ans[n]||null}
 function gradedTest(){return !!(state.test&&state.test.phase==='done')}
@@ -338,13 +349,13 @@ const lines=s.split('\n');
 if(lines.length>1){let out='',i=0;
 while(i<lines.length){
 if(looksCode(lines[i])){const b=[];while(i<lines.length&&looksCode(lines[i])){b.push(lines[i]);i++;}
-out+='<pre class="code">'+hl(b.join('\n'))+'</pre>';}
+out+=showCode(b.join('\n'));}
 else{out+='<span class="q">'+esc(lines[i])+'</span><br>';i++;}}
 return out;}
 const m=CODESTART.exec(s);
-if(m&&m.index>0)return '<span class="q">'+esc(s.slice(0,m.index))+'</span><pre class="code">'+hl(s.slice(m.index))+'</pre>';
+if(m&&m.index>0)return '<span class="q">'+esc(s.slice(0,m.index))+'</span>'+showCode(s.slice(m.index));
 if(/[\u3000-\u303f\u4e00-\u9fff\uff00-\uffef]/.test(s))return '<span class="q">'+esc(s).replace(/\n/g,'<br>')+'</span>';
-return '<pre class="code">'+hl(s)+'</pre>';}
+return showCode(s);}
 
 function setControls(d){['kw','tn','starttest','clearlib','clearprog','reset','unit','auto','shuf','ordseq','ordshuf'].forEach(id=>{const el=qs(id);if(el)el.disabled=d;});}
 function pool(){let a=DATA.slice();
